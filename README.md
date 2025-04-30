@@ -22,7 +22,7 @@ Modular folder structure for easy scaling and future feature expansion.
 
 ** Tech Stack **
 
-Tech	        Purpose
+TECH	        PURPOSE
 Next.js	        React Framework (SSR, SSG, API routes)
 React	        Frontend library
 TypeScript	    For more scalable and stable code
@@ -101,3 +101,40 @@ Practicing clean code and reusable component patterns in React and Next.js.
 If you have any questions or would like to discuss the project, feel free to reach out!
 LinkedIn: https://www.linkedin.com/in/jproca/
 Email: jp.roca.angulo@gmail.com
+
+
+** MVP 1 – Core Development **
+
+PACKAGE	                   PURPOSE
+next	                   Core framework
+react/react-dom            React runtime
+tailwindcss	               Styling
+postcss/autoprefixer       Tailwind build chain
+@fontsource/poppins	       Font loading
+@types/react /typescript   Type safety & DX
+clsx	                   Conditional Tailwind classes
+
+** MVP 2 – Search & Image Optimization **
+
+PACKAGE	                PURPOSE
+fuse.js	                Fuzzy search / autocomplete logic
+cloudinary	            Image hosting + transformation
+@cloudinary/url-gen	    Client-side Cloudinary helper
+axios	                Cleaner async requests if using APIs
+
+** MVP 3 – SEO, Analytics, & Growth Tools **
+
+PACKAGE	                PURPOSE
+next-seo	            SEO meta tags
+react-ga4 or gtag.js	Google Analytics 4 tracking
+next-sitemap	        Sitemap generation for SEO
+next/script (built-in)	External script loading (e.g. ads, analytics)
+@vercel/analytics   	Vercel-based page analytics
+
+** MVP 4 – Advanced Features (Optional for V1) **
+
+PACKAGE	                PURPOSE
+zustand or jotai	    State management (e.g. filter/search UI)
+framer-motion	        Animations (nice visual polish)
+react-toastify	        Feedback / notifications
+swr or react-query	    Data fetching if dynamic recipes/API

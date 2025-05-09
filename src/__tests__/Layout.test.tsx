@@ -3,13 +3,32 @@ import { render, screen } from '@testing-library/react'
 import { Layout } from '@/components/Layout/Layout'
 
 describe('Layout', () => {
-  it('renders children inside the layout', () => {
+  it('renders children correctly', () => {
     render(
       <Layout>
-        <p>Test content inside layout</p>
+        <p>Inside layout</p>
       </Layout>
     )
+    expect(screen.getByText('Inside layout')).toBeInTheDocument()
+  })
 
-    expect(screen.getByText('Test content inside layout')).toBeInTheDocument()
+  it('uses desktop layout when isMobile is false', () => {
+    render(
+      <Layout isMobile={false}>
+        <p>Desktop content</p>
+      </Layout>
+    )
+    const layout = screen.getByTestId('layout-desktop')
+    expect(layout).toBeInTheDocument()
+  })
+
+  it('uses mobile layout when isMobile is true', () => {
+    render(
+      <Layout isMobile>
+        <p>Mobile content</p>
+      </Layout>
+    )
+    const layout = screen.getByTestId('layout-mobile')
+    expect(layout).toBeInTheDocument()
   })
 })

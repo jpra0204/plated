@@ -1,7 +1,7 @@
 import React from 'react';
 import type { AppProps } from 'next/app'
 import '@/styles/globals.css'
-import { Layout } from '@/src/components/Layout/Layout'
+import { Layout } from '@/components/Layout/Layout'
 
 import '@fontsource/poppins/400.css';
 import '@fontsource/poppins/500.css';

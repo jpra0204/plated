@@ -1,27 +1,18 @@
-import { getSession } from "next-auth/react";
-import AuthButton from "../components/AuthButton";
+import { useState } from 'react';
+import PantryForm from '@/components/PantryForm';
+import PantryList from '@/components/PantryList';
+import AuthButton from '@/components/AuthButton';
+
 
 export default function Dashboard() {
+  const [refresh, setRefresh] = useState(0);
+
   return (
-    <div className="p-8">
+    <div className="p-md">
       <AuthButton />
-      <h1 className="text-2xl mt-4">Dashboard</h1>
-      <p className="mt-2">You’re successfully signed in!</p>
+      <h1 className="font-headline text-primary mb-md">Our Pantry</h1>
+      <PantryForm onAdd={() => setRefresh(r => r + 1)} />
+      <PantryList key={refresh} />
     </div>
   );
-}
-
-export async function getServerSideProps(context: any) {
-  const session = await getSession(context);
-  if (!session) {
-    return {
-      redirect: {
-        destination: "/",
-        permanent: false,
-      },
-    };
-  }
-  return {
-    props: { session },
-  };
 }

@@ -1,0 +1,24 @@
+@import "./tokens.css";
+
+/* Colors */
+.bg-background   { background: var(--color-background) !important; }
+.bg-primary      { background: var(--color-primary) !important; }
+.text-primary    { color: var(--text-primary) !important; }
+.text-secondary  { color: var(--text-secondary) !important; }
+
+/* Typography */
+.font-poppins    { font-family: var(--font-body) !important; }
+.font-headline   { font-family: var(--font-headline) !important; }
+.font-mono       { font-family: var(--font-mono) !important; }
+
+/* Spacing (you can add as many as you need) */
+.p-xs            { padding: var(--space-xs) !important; }
+.p-sm            { padding: var(--space-sm) !important; }
+.p-md            { padding: var(--space-md) !important; }
+.p-lg            { padding: var(--space-lg) !important; }
+.p-xl            { padding: var(--space-xl) !important; }
+
+/* Border radius */
+.rounded-sm      { border-radius: var(--radius-sm) !important; }
+.rounded-md      { border-radius: var(--radius-md) !important; }
+.rounded-lg      { border-radius: var(--radius-lg) !important; }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type Mood = "healthy" | "comfort" | "fancy";
@@ -103,6 +104,19 @@ export default function PlatedChef() {
                         </li>
                     ))}
                     </ol>
+                    <button className="mt-md bg-primary text-white px-lg py-sm rounded-md"
+                        onClick={async () => {
+                            await fetch("/api/recipes", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(recipe),
+                            });
+                            alert("Recipe saved!");
+                        }}>
+                        Save this recipe
+                    </button>
+                    <br />
+                    <Link href="/cookbook">My Recipes</Link>
                 </div>
             )}
         </div>

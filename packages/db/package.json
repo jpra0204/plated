@@ -12,5 +12,8 @@
   "description": "",
   "dependencies": {
     "mongoose": "^8.15.0"
+  },
+  "devDependencies": {
+    "@types/mongodb": "^4.0.6"
   }
 }

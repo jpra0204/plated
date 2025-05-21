@@ -1,5 +1,3 @@
-import fetch from "node-fetch";
-
 type Provider = "groq" | "together";
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS as string);
 

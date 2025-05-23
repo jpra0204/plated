@@ -91,18 +91,18 @@ export default function PlatedChef() {
 
                     <h3 className="font-headline text-primary mb-xs">Ingredients</h3>
                     <ul className="list-disc pl-md mb-md">
-                    {recipe.ingredients.map((ing, i) => (
-                        <li key={i}>{ing}</li>
-                    ))}
+                        {recipe.ingredients.map((ing, i) => (
+                            <li key={i}>{ing}</li>
+                        ))}
                     </ul>
 
                     <h3 className="font-headline text-primary mb-xs">Steps</h3>
                     <ol className="list-decimal pl-md">
-                    {recipe.steps.map((step, i) => (
-                        <li key={i} className="mb-xs">
-                            {step}
-                        </li>
-                    ))}
+                        {recipe.steps.map((step, i) => (
+                            <li key={i} className="mb-xs">
+                                {step}
+                            </li>
+                        ))}
                     </ol>
                     <button className="mt-md bg-primary text-white px-lg py-sm rounded-md"
                         onClick={async () => {

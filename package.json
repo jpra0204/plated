@@ -1,5 +1,6 @@
 {
   "name": "plated",
+  "version": "0.1.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -17,6 +18,7 @@
     "turbo": "^2.5.3",
     "typescript": "5.8.2"
   },
+  "packageManager": "npm@10.9.0",
   "engines": {
     "node": ">=18"
   },

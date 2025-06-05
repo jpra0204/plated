@@ -9,7 +9,6 @@ export default function Dashboard() {
 
   return (
     <div className="p-md">
-      <AuthButton />
       <h1 className="font-headline text-primary mb-md">Our Pantry</h1>
       <PantryForm onAdd={() => setRefresh(r => r + 1)} />
       <PantryList key={refresh} />

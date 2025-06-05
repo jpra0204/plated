@@ -60,13 +60,17 @@
     border: 2px solid var(--color-primary);
     background-color: var(--color-background);
     transition: 0.5s;
+    display: none;
 }
 .navigation ul li:nth-child(1).active~.indicator {
     transform: translateX(calc(-26px * 4));
+    display: block;
 }
 .navigation ul li:nth-child(2).active~.indicator {
     transform: translateX(calc(-4px * 1));
+    display: block;
 }
 .navigation ul li:nth-child(3).active~.indicator {
     transform: translateX(calc(-25px * -4));
+    display: block;
 }

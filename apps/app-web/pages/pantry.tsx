@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import PantryForm from '@/components/PantryForm';
 import PantryList from '@/components/PantryList';
-import AuthButton from '@/components/AuthButton';
 
-
-export default function Dashboard() {
+export default function Pantry() {
   const [refresh, setRefresh] = useState(0);
 
   return (

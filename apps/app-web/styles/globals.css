@@ -1,13 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-@import "./tokens.css";
-@import "./utilities.css";
+@import url("./tokens.css");
 
+
+html {
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+    min-height: 100vh;
+}
 body {
     margin: 0;
     padding: 0;
     background: var(--color-background);
     color: var(--text-primary);
     font-family: var(--font-body);
+    min-height: 100vh;
+}
+.main-content{
+    padding-bottom: 80px;
 }

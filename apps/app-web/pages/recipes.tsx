@@ -23,7 +23,6 @@ export default function MyRecipes() {
         // If auth status is still "loading", do nothing yet
         if (status !== "authenticated") return;
     
-        // Now we know status === "authenticated", so fetch
         setLoading(true);
         fetch("/api/recipes")
           .then((res) => {

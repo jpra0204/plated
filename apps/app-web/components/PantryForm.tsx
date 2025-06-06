@@ -1,17 +1,22 @@
 "use client";
-import { log } from "console";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 export default function PantryForm( { onAdd }: {onAdd: () => void}) {
     // Initialize the variables
     const [name, setName] = useState('');
     const [qty, setQty] = useState<number>(0);
     const [unit, setUnit] = useState('g');
+    const { data: session, status } = useSession();
 
     // Function to post a pantry item
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Submitting', { name, qty, unit });
+        // If the user is not authenticated, show an alert **to be fixed later**
+        if(status !== "authenticated") {
+            alert("You must be logged in to add items to your pantry.");
+            return;
+        }
         await fetch('/api/pantry', {
           method: 'POST',
           credentials: 'include',

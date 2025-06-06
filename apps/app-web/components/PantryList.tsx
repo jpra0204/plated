@@ -14,7 +14,6 @@ export default function PantryList({items}: { items?: Item[] }) {
         
     // }
 
-    console.log("Rendering PantryList with items:", items);
     if(!items || items.length === 0) {
         return <p>No items in the pantry.</p>;
     }

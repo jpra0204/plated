@@ -60,6 +60,7 @@
         transform: scale(0.8);
         transition: transform 0.2s ease, opacity 0.2s ease;
         opacity: 0;
+        padding: 1.5rem 2rem;
     }
     .modal.open {
         transform: scale(1);

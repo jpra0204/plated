@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import styles from "./styles.module.css";
 import { FaX } from "react-icons/fa6";
@@ -13,38 +13,40 @@ interface ModalProps {
 }
 
 export default function Modal({ isOpen, onClose, children, title }: ModalProps) {
+
+    const [rootContainer, setRoot] = useState<HTMLElement|null>(null);
     // Ensure #modal-root exists
     useEffect(() => {
-    let root = document.getElementById("modal-root");
-    if (!root) {
-        root = document.createElement("div");
-        root.id = "modal-root";
-        document.body.append(root);
-    }
+        let root = document.getElementById("modal-root");
+        if (!root) {
+            root = document.createElement("div");
+            root.id = "modal-root";
+            document.body.append(root);
+        }
+        setRoot(root);
     }, []);
 
     // Lock scroll & listen for ESC
     useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-        if (e.key === "Escape") onClose();
-    }
-    // Prevent scroll when modal is open
-    if (isOpen) {
-        document.body.style.overflow = "hidden";
-        document.addEventListener("keydown", onKey);
-    } else {
-        document.body.style.overflow = "";
-    }
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") onClose();
+        }
+        // Prevent scroll when modal is open
+        if (isOpen) {
+            document.body.style.overflow = "hidden";
+            document.addEventListener("keydown", onKey);
+        } else {
+            document.body.style.overflow = "";
+        }
 
-    return () => {
-        document.body.style.overflow = "";
-        document.removeEventListener("keydown", onKey);
-    };
+        return () => {
+            document.body.style.overflow = "";
+            document.removeEventListener("keydown", onKey);
+        };
 
     }, [isOpen, onClose]);
 
-    const root = document.getElementById("modal-root");
-    if (!root) return null;
+    if (!rootContainer) return null;
 
     return ReactDOM.createPortal(
         <div className={`${styles.backdrop} ${isOpen ? styles.open : ""}`} onClick={onClose}>
@@ -56,6 +58,6 @@ export default function Modal({ isOpen, onClose, children, title }: ModalProps) 
                 {children}
             </div>
         </div>,
-        root
+        rootContainer
     );
 }

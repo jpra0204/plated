@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import PantryForm from '@/components/PantryForm';
 import PantryList from '@/components/PantryList';
 import { useSession } from 'next-auth/react';
+import Modal from '@/components/common/Modal/Modal';
 
 interface PantryItem { 
   _id: string;
@@ -14,6 +15,8 @@ interface PantryItem {
 export default function Pantry() {
   const { data: session, status } = useSession();
   const [items, setItems] = useState<PantryItem[]>([]);
+  const [isOpen, setOpen] = useState(false);
+
   useEffect(() => {
     // We do not make the call if the user is not authenticated
     if (status !== "authenticated") return;
@@ -41,8 +44,18 @@ export default function Pantry() {
   return (
     <div className="p-md">
       <h1 className="font-headline text-primary mb-md">Your Pantry</h1>
-      <PantryForm onAdd={() => handleAddItem} />
+      
       <PantryList items={items} />
+      <button onClick={() => setOpen(true)}>
+        Open “Add Ingredient”
+      </button>
+
+      <Modal isOpen={isOpen} onClose={() => setOpen(false)} title="Add Ingredient">
+        <div className="p-md">
+            <PantryForm onAdd={() => handleAddItem} />
+          <button onClick={() => setOpen(false)}>Close</button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -1,0 +1,20 @@
+.floatingCta{
+    position: fixed;
+    bottom: calc(4rem + 20px);;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--color-primary);
+    color: #FFFFFF;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.floatingCta:active{
+    background-color: var(--color-primary-dark);
+    transform: scale(0.95);
+}

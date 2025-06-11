@@ -4,6 +4,7 @@ import PantryForm from '@/components/PantryForm';
 import PantryList from '@/components/PantryList';
 import { useSession } from 'next-auth/react';
 import Modal from '@/components/common/Modal/Modal';
+import AddPantryFloatingCta from '@/components/feature/pantry/AddPantryFloatingCta';
 
 interface PantryItem { 
   _id: string;
@@ -42,13 +43,11 @@ export default function Pantry() {
   }
 
   return (
-    <div className="p-md">
+    <>
       <h1 className="font-headline text-primary mb-md">Your Pantry</h1>
       
       <PantryList items={items} />
-      <button onClick={() => setOpen(true)}>
-        Open “Add Ingredient”
-      </button>
+      <AddPantryFloatingCta handleOnClick={() => setOpen(true)} />
 
       <Modal isOpen={isOpen} onClose={() => setOpen(false)} title="Add Ingredient">
         <div className="p-md">
@@ -56,6 +55,6 @@ export default function Pantry() {
           <button onClick={() => setOpen(false)}>Close</button>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

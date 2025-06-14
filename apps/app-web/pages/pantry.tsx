@@ -5,6 +5,7 @@ import PantryList from '@/components/PantryList';
 import { useSession } from 'next-auth/react';
 import Modal from '@/components/common/Modal/Modal';
 import AddPantryFloatingCta from '@/components/feature/pantry/AddPantryFloatingCta';
+import { useModal } from '@/hooks/useModal';
 
 interface PantryItem { 
   _id: string;
@@ -17,6 +18,7 @@ export default function Pantry() {
   const { data: session, status } = useSession();
   const [items, setItems] = useState<PantryItem[]>([]);
   const [isOpen, setOpen] = useState(false);
+  const modal = useModal();
 
   useEffect(() => {
     // We do not make the call if the user is not authenticated
@@ -47,9 +49,9 @@ export default function Pantry() {
       <h1 className="font-headline text-primary mb-md">Your Pantry</h1>
       
       <PantryList items={items} />
-      <AddPantryFloatingCta handleOnClick={() => setOpen(true)} />
+      <AddPantryFloatingCta handleOnClick={modal.open} />
 
-      <Modal isOpen={isOpen} onClose={() => setOpen(false)} title="Add Ingredient">
+      <Modal isOpen={modal.isOpen} onClose={modal.close} title="Add Ingredient">
         <div className="p-md">
             <PantryForm onAdd={() => handleAddItem} />
           <button onClick={() => setOpen(false)}>Close</button>

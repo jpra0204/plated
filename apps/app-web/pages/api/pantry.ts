@@ -65,10 +65,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // If the method is DELETE, remove an item from the user's pantry
   if (req.method === 'DELETE') {
       const { id } = req.query;
-      await users.updateOne(
+      const deleteResult = await users.updateOne(
           { email: userEmail },
           { $pull: { pantry: { _id: new ObjectId(id as string) } } }
       );
+      //
+      if (deleteResult.modifiedCount === 0) {
+        // If no item with the id provided is found
+        return res.status(404).json({ error: "No pantry item found to delete" });
+      }
+      // Success
       return res.status(204).end();
   }
 

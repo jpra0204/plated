@@ -1,5 +1,7 @@
 "use client"
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, CSSProperties } from "react";
+import PantryItem from "./feature/pantry/PantryItem";
+import Card from "./common/Card/Card";
 
 interface Item { 
   _id: string;
@@ -10,22 +12,30 @@ interface Item {
 
 export default function PantryList({items}: { items?: Item[] }) {
     // Function to delete a pantry item
-    // const handleDelete = async (id: string) => {
-        
-    // }
+    const handleDelete = (id: string) => {
+        alert(`Delete item with id: ${id}`);
+    }
 
     if(!items || items.length === 0) {
         return <p>No items in the pantry.</p>;
     }
+    const totalItems = items.length;
+    const bgStyle: CSSProperties = {
+        width: "95%",
+        margin: "0 auto",
+        height: "1px",
+        backgroundColor: "#efefef"
+    };
 
     return (
-        <ul>
-          {items?.map(item => (
-            <li key={item._id} className="p-sm bg-background rounded-sm mb-xs flex justify-between">
-              <span>{item.quantity}{item.unit} {item.name}</span>
-              <button onClick={() => console.log("delete")} className="text-secondary">✕</button>
-            </li>
+        <Card>
+          {items?.map((item, index) => (
+            <div key={item._id}>
+              <PantryItem id={item._id} {...item} onDelete={() => handleDelete(item._id)}/>
+                { (totalItems - 1 !== index) && <div style={bgStyle}></div> }
+            </div>
+
           ))}
-        </ul>
+        </Card>
       );
 }

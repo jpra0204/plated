@@ -2,9 +2,12 @@
   /* Colors */
   --color-background: #FAF9F6;
   --color-primary:    #D75A4A;
+  --color-primary-dark: #D24735;
+  --color-primary-light: #E08074;
   --color-secondary:  #A8B39A;
   --text-primary:     #333333;
   --text-secondary:   #666666;
+ 
 
   /* Typography */
   --font-headline:   "Poppins", sans-serif;

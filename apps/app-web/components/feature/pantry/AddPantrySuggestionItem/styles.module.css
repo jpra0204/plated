@@ -1,0 +1,17 @@
+.suggestionItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    list-style-type: none;
+}
+.itemInfoContainer{
+    display: flex;
+    align-items: center;
+}
+.itemImage{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+}

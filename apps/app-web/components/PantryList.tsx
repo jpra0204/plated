@@ -1,52 +1,40 @@
 "use client"
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, CSSProperties } from "react";
+import PantryItem from "./feature/pantry/PantryItem";
+import Card from "./common/Card/Card";
+import type { PantryItemType } from "@/types/pantry";
 
-interface Item { 
-    _id: string;
-    name: string;
-    quantity: number;
-    unit: string;
-}
+type PantryListProps = {
+  items: PantryItemType[];
+  onDelete: (id: string) => void;
+};
 
-export default function PantryList() {
-    const [items, setItems] = useState<Item[]>([]);
-
-    // Get the pantry items from the API
-    const getItems = async () => {
-        const res = await fetch('/api/pantry', { credentials: 'include' });
-        // Check if the response is empty
-        if (res.status === 204) {
-          setItems([]);
-          return;
-        }
-        if (!res.ok) {
-          console.error("Failed to load pantry", res.statusText);
-          return;
-        }
-        const data = await res.json();
-        setItems(data);
-    };
-      
-
-    useEffect(() => { getItems() }, []);
-
+export default function PantryList({ items, onDelete }: PantryListProps) {
     // Function to delete a pantry item
-    const handleDelete = async (id: string) => {
-        await fetch(`/api/pantry?id=${id}`, {
-            method: 'DELETE',
-        });
-        // Refresh the list of items
-        getItems();
+    const handleDelete = (id: string) => {
+        onDelete(id);
     }
 
+    if(!items || items.length === 0) {
+        return <p>No items in the pantry.</p>;
+    }
+    const totalItems = items.length;
+    const bgStyle: CSSProperties = {
+        width: "95%",
+        margin: "0 auto",
+        height: "1px",
+        backgroundColor: "#efefef"
+    };
+
     return (
-        <ul>
-          {items.map(item => (
-            <li key={item._id} className="p-sm bg-background rounded-sm mb-xs flex justify-between">
-              <span>{item.quantity}{item.unit} {item.name}</span>
-              <button onClick={() => handleDelete(item._id!)} className="text-secondary">✕</button>
-            </li>
+        <Card>
+          {items?.map((item, index) => (
+            <div key={item._id}>
+              <PantryItem item={item} onDelete={() => handleDelete(item._id)}/>
+                { (totalItems - 1 !== index) && <div style={bgStyle}></div> }
+            </div>
+
           ))}
-        </ul>
+        </Card>
       );
 }

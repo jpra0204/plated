@@ -23,6 +23,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "mongodb": "^5.9.2"
+    "mongodb": "^5.9.2",
+    "react-swipeable": "^7.0.2"
   }
 }

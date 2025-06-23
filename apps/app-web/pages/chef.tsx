@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 type Mood = "healthy" | "comfort" | "fancy";
 interface Recipe {
@@ -20,12 +21,19 @@ export default function PlatedChef() {
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { data: session, status } = useSession();
 
     const generate = async () => {
         // Reset state
         setLoading(true);
         setError(null);
         setRecipe(null);
+
+        if(status !== "authenticated") {
+            setError("You must be logged in to generate a recipe.");
+            setLoading(false);
+            return;
+        }
 
         try {
             const res = await fetch("/api/chef", {

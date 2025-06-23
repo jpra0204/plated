@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import styles from "./styles.module.css";
 
 type Variant = "success" | "error" | "info";
@@ -12,18 +19,18 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const add = useCallback((variant: Variant, message: string) => {
     const id = crypto.randomUUID();
     setToasts((t) => [...t, { id, variant, message }]);
-
-    // auto-dismiss after 3 s
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3000);
   }, []);
 
   return (
     <ToastCtx.Provider value={add}>
       {children}
-      <ToastStack toasts={toasts} />
+      {createPortal(<ToastStack toasts={toasts} />, document.body)}
     </ToastCtx.Provider>
   );
 };
+
+export const useRawToast = () => useContext(ToastCtx);
 
 const ToastStack: React.FC<{ toasts: Toast[] }> = ({ toasts }) => (
   <div className={styles.toastStack}>
@@ -34,5 +41,3 @@ const ToastStack: React.FC<{ toasts: Toast[] }> = ({ toasts }) => (
     ))}
   </div>
 );
-
-export const useRawToast = () => useContext(ToastCtx);

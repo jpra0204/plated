@@ -22,64 +22,75 @@ export default function AddPantryModal({
     const [results, setResults] = useState<Suggestion[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const Toast = useToast();
+    const toast = useToast();
 
-    // fetch suggestions when query changes
     useEffect(() => {
     if (!query) {
         setResults([]);
         return;
     }
+
     setLoading(true);
 
-    const params = new URLSearchParams({
-        search_terms: query,
-        search_simple: "1",
-        action: "process",
-        json: "1",
-        page_size: "10",
-        fields: "product_name,image_front_small_url",
-        nocache: "1",
-        taptype_0: "categories",
-        tag_contains_0: "contains",
-        tag_0: query,
-    });
+    const url =
+        `https://trackapi.nutritionix.com/v2/search/instant` +
+        `?query=${encodeURIComponent(query)}` +
+        `&common=true&branded=false&self=false&detailed=false`;
 
-    fetch("https://world.openfoodfacts.org/cgi/search.pl?" + params.toString())
-            .then((r) => r.json())
-            .then((data: { products: Suggestion[] }) => {
-            setResults(data.products || []);
+    fetch(url, {
+        headers: {
+        "x-app-id": process.env.NEXT_PUBLIC_NUTRITIONIX_APP_ID as string,
+        "x-app-key": process.env.NEXT_PUBLIC_NUTRITIONIX_APP_KEY as string,
+        },
+    })
+        .then((r) => {
+            if (!r.ok) throw new Error(r.statusText);
+            return r.json();
+        })
+        .then((data: { common: any[] }) => {
+            /* Map Nutritionix shape → local Suggestion shape */
+            const mapped: Suggestion[] = data.common
+                .slice(0, 10)
+                .map((c) => ({
+                    id: c.tag_id ?? c.food_name,
+                    product_name: c.food_name,
+                    image_front_small_url: c.photo?.thumb ?? null,
+            }));
+            setResults(mapped);
             setError(null);
         })
         .catch((err) => {
             console.error(err);
-            setError("Failed to load");
+            setError("Failed to load suggestions");
         })
         .finally(() => setLoading(false));
     }, [query]);
 
     const handleAdd = (s: Suggestion) => {
-        const newItem: Omit<PantryItemType, "_id"> = {
-            name: s.product_name,
-            quantity: 1,
-            unit: "",
-            createdAt: new Date().toISOString(),
-        };
-        onAdd(newItem);
-        setQuery("");
-        setResults([]);
-        Toast.success("Ingredient saved!");
+    const newItem: Omit<PantryItemType, "_id"> = {
+        name: s.product_name,
+        quantity: 1,
+        unit: "",
+        createdAt: new Date().toISOString(),
+    };
+    onAdd(newItem);
+    setQuery("");
+    setResults([]);
+    toast.success("Ingredient saved!");
     };
 
     return (
         <Modal isOpen={modalControl.isOpen} onClose={modalControl.close} title="Add Ingredient" className={styles.addPantryModal}>
             <SearchInput
                 value={query}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-                onClear={() => setQuery("")}
-            />
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setQuery(e.target.value)
+                }
+                onClear={() => setQuery("")} />
+            
             {loading && <div>Loading…</div>}
             {error && <div className="error">{error}</div>}
+
             <SuggestionList items={results} onAdd={handleAdd} />
         </Modal>
     );

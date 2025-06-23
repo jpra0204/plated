@@ -15,6 +15,10 @@ const ToastCtx = createContext<(v: Variant, msg: string) => void>(() => {});
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mounted, setMounted] = useState(false);          // ← NEW
+
+  /* Mount flag so we skip portal on SSR */
+  useEffect(() => setMounted(true), []);
 
   const add = useCallback((variant: Variant, message: string) => {
     const id = crypto.randomUUID();
@@ -25,7 +29,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastCtx.Provider value={add}>
       {children}
-      {createPortal(<ToastStack toasts={toasts} />, document.body)}
+      {mounted && createPortal(<ToastStack toasts={toasts} />, document.body)}
     </ToastCtx.Provider>
   );
 };

@@ -10,9 +10,10 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   title: string;
+  className?: string;
 }
 
-export default function Modal({ isOpen, onClose, children, title }: ModalProps) {
+export default function Modal({ isOpen, onClose, children, title, className }: ModalProps) {
 
     const [rootContainer, setRoot] = useState<HTMLElement|null>(null);
     // Ensure #modal-root exists
@@ -50,7 +51,7 @@ export default function Modal({ isOpen, onClose, children, title }: ModalProps) 
 
     return ReactDOM.createPortal(
         <div className={`${styles.backdrop} ${isOpen ? styles.open : ""}`} onClick={onClose}>
-            <div className={`${styles.modal} ${isOpen ? styles.open : ""}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`${styles.modal} ${isOpen ? styles.open : ""} ${className}`} onClick={(e) => e.stopPropagation()}>
                 <h2 className={styles.title}>{title}</h2>
                 <button className={styles.closeButton} onClick={onClose}>
                     <FaX />

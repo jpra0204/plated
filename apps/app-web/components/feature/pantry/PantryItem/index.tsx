@@ -4,31 +4,17 @@ import { useSwipeable } from "react-swipeable";
 import { useState, CSSProperties } from "react";
 import styles from "./styles.module.css";
 import { FaTrashAlt, FaCartPlus } from "react-icons/fa";
-
+import type { PantryItemType } from '@/types/pantry'
 
 interface PantryItemProps {
-    id: string;
-    name: string;
-    quantity: number;
-    unit: string;
-    onDelete: (id: string) => void;
+    item: PantryItemType;
+    onDelete: (id: string) => void | Promise<void>;
     onAddToCart?: (id: string) => void;
 }
 
-export default function PantryItem({ id, name, quantity, unit, onDelete, onAddToCart }: PantryItemProps) {
+export default function PantryItem({ item, onDelete, onAddToCart }: PantryItemProps) {
     const [deltaX, setDeltaX] = useState(0);
     const [isSwiping, setIsSwiping] = useState(false);
-
-    // Function to delete a pantry item
-    const handleOnDelete = (id: string) => {
-        console.log(id)
-        fetch('/api/pantry', {
-            method: 'DELETE',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-        });
-    };
 
     const handlers = useSwipeable({
         onSwiping: ({ deltaX }) => {
@@ -39,7 +25,7 @@ export default function PantryItem({ id, name, quantity, unit, onDelete, onAddTo
         onSwiped: ({ absX, deltaX }) => {
             setIsSwiping(false);
             if (deltaX < 0 && absX > 100) {
-                handleOnDelete(id);
+                onDelete(item._id);
             }
             //  else if (deltaX > 0 && absX > 100) {
             //     onAddToCart?.(id);
@@ -75,9 +61,9 @@ export default function PantryItem({ id, name, quantity, unit, onDelete, onAddTo
             )}
 
             <div className={styles.pantryItem} style={itemStyle}>
-                <span className={styles.pantryItemLabel}>{name}</span>
+                <span className={styles.pantryItemLabel}>{item.name}</span>
                 <span className={styles.pantryItemQuantity} style={{ color: "#666", fontSize: "0.875rem" }}>
-                    {quantity} {unit}
+                    {item.quantity} {item.unit}
                 </span>
             </div>
         </div>

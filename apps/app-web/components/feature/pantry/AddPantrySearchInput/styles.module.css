@@ -1,0 +1,10 @@
+.searchInputWrapper{
+    position: relative;
+    width: 100%;
+}
+.clearCta{
+    position: absolute;
+    right: 15px;
+    top: 35%;
+    color: var(--text-secondary)
+}

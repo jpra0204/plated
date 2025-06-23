@@ -1,0 +1,10 @@
+.suggestionList{
+    padding: 0;
+    max-height: 70vh;
+    overflow-y: scroll;
+}
+.itemSeparator {
+    height: 0.5px;
+    background-color: #cfcfcf;
+    margin: 0.3rem 0;
+}

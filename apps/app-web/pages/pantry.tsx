@@ -1,23 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
-import PantryForm from '@/components/PantryForm';
 import PantryList from '@/components/PantryList';
 import { useSession } from 'next-auth/react';
-import Modal from '@/components/common/Modal/Modal';
+import AddPantryModal from '@/components/feature/pantry/ModalAddPantry';
 import AddPantryFloatingCta from '@/components/feature/pantry/AddPantryFloatingCta';
 import { useModal } from '@/hooks/useModal';
-
-interface PantryItem { 
-  _id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-}
+import type { PantryItemType } from "@/types/pantry";
 
 export default function Pantry() {
   const { data: session, status } = useSession();
-  const [items, setItems] = useState<PantryItem[]>([]);
-  const [isOpen, setOpen] = useState(false);
+  const [items, setItems] = useState<PantryItemType[]>([]);
   const modal = useModal();
 
   useEffect(() => {
@@ -26,37 +18,47 @@ export default function Pantry() {
 
     fetch('/api/pantry')
     .then((res) => res.json())
-    .then((data: PantryItem[]) => {
+    .then((data: PantryItemType[]) => {
       setItems(data)
     })
   }, [status]);
 
-  const handleAddItem = (newItem: Omit<PantryItem, "_id">) => {
-    // Post to server, then append to state
+  const handleAddItem = (newItem: Omit<PantryItemType, "_id">) => {
     fetch("/api/pantry", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newItem),
     })
-      .then((res) => res.json())
-      .then((saved: PantryItem) => {
+      .then((r) => r.json())
+      .then((saved: PantryItemType) => {
         setItems((prev) => [...prev, saved]);
       });
-  }
+  };
+
+  // Function to delete a pantry item
+  const handleOnDelete = async (id: string) => {
+      const res = await fetch(`/api/pantry?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          credentials: "include"
+      });
+
+      if (!res.ok) {
+          console.error("Delete failed", await res.text());
+        } else {
+          console.log("Deleted!");
+          // update your UI here, e.g. refetch pantry or remove from state
+          setItems((current) => current.filter((it) => it._id !== id))
+        }
+  };
 
   return (
     <>
       <h1 className="font-headline text-primary mb-md">Your Pantry</h1>
       
-      <PantryList items={items} />
+      <PantryList items={items} onDelete={handleOnDelete}/>
       <AddPantryFloatingCta handleOnClick={modal.open} />
 
-      <Modal isOpen={modal.isOpen} onClose={modal.close} title="Add Ingredient">
-        <div className="p-md">
-            <PantryForm onAdd={() => handleAddItem} />
-          <button onClick={() => setOpen(false)}>Close</button>
-        </div>
-      </Modal>
+      <AddPantryModal modalControl={modal} onAdd={handleAddItem} />
     </>
   );
 }

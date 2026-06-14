@@ -1,29 +1,29 @@
 {
   "name": "plated",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "workspaces": [
-    "apps/app-web",
+    "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "dev": "concurrently -n web,api -c cyan,green \"npm run dev --workspace=apps/web\" \"npm run dev --workspace=apps/api\"",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "overrides": {
+    "shell-quote": "^1.8.4"
   },
   "devDependencies": {
-    "prettier": "^3.5.3",
-    "turbo": "^2.5.3",
-    "typescript": "5.8.2"
-  },
-  "packageManager": "npm@10.9.0",
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "mongodb": "^5.9.2",
-    "react-swipeable": "^7.0.2"
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.3.0"
   }
 }

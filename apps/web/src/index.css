@@ -109,3 +109,84 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ── App shell ──────────────────────────────────────────────────────────────── */
+
+#root {
+  width: 100%;
+  max-width: 480px; /* mobile-first; constrain on desktop */
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100dvh;
+}
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 64px; /* clear the fixed tab bar */
+}
+
+.page {
+  padding: 16px;
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: 100%;
+  max-width: 480px;
+  height: 64px;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  /* Safe area inset for devices with a home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.tab-bar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-bar__item:hover {
+  color: var(--accent);
+}
+
+.tab-bar__item--active {
+  color: var(--accent);
+}
+
+.tab-bar__icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.tab-bar__label {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.2px;
+}

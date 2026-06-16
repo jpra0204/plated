@@ -1,50 +1,37 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import useAuthStore from '../stores/authStore.js';
 
 /**
- * TabBar — persistent bottom navigation for the five main tabs.
+ * TabBar — persistent bottom navigation.
  *
- * Hidden on the /auth route so the sign-in page gets a full-bleed layout.
- * Active tab is highlighted via NavLink's `isActive` flag + CSS class.
+ * Auth-aware:
+ *  - When the user is signed in, the 5th tab shows "Profile".
+ *  - When signed out, it shows "Sign in" and links to /auth.
+ *
+ * Hidden entirely on /auth (full-screen layout).
  */
-
-const TABS = [
-  {
-    to: '/',
-    end: true, // exact match — don't activate for /chef, /pantry, etc.
-    label: 'Home',
-    icon: HomeIcon,
-  },
-  {
-    to: '/chef',
-    label: 'Chef',
-    icon: ChefIcon,
-  },
-  {
-    to: '/pantry',
-    label: 'Pantry',
-    icon: PantryIcon,
-  },
-  {
-    to: '/saved',
-    label: 'Saved',
-    icon: SavedIcon,
-  },
-  {
-    to: '/profile',
-    label: 'Profile',
-    icon: ProfileIcon,
-  },
-];
 
 export default function TabBar() {
   const { pathname } = useLocation();
+  const { user } = useAuthStore();
 
-  // Don't render the tab bar on the auth screen
   if (pathname === '/auth') return null;
+
+  const tabs = [
+    { to: '/',        end: true,  label: 'Home',    icon: HomeIcon },
+    { to: '/chef',              label: 'Chef',    icon: SparklesIcon },
+    { to: '/pantry',            label: 'Pantry',  icon: BasketIcon },
+    { to: '/saved',             label: 'Saved',   icon: BookmarkIcon },
+    {
+      to: user ? '/profile' : '/auth',
+      label: user ? 'Profile' : 'Sign in',
+      icon: user ? ProfileIcon : SignInIcon,
+    },
+  ];
 
   return (
     <nav className="tab-bar" aria-label="Main navigation">
-      {TABS.map(({ to, end, label, icon: Icon }) => (
+      {tabs.map(({ to, end, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -62,9 +49,7 @@ export default function TabBar() {
   );
 }
 
-// ── Inline SVG icons ──────────────────────────────────────────────────────────
-// Kept inline so there's no icon-library dependency. Swap for your icon set
-// (Lucide, Heroicons, etc.) when the design is finalised.
+// ── Icons ──────────────────────────────────────────────────────────────────────
 
 function HomeIcon({ className }) {
   return (
@@ -75,16 +60,17 @@ function HomeIcon({ className }) {
   );
 }
 
-function ChefIcon({ className }) {
+function SparklesIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
-      <line x1="6" y1="17" x2="18" y2="17" />
+      <path d="M12 3 L13.5 8.5 L19 10 L13.5 11.5 L12 17 L10.5 11.5 L5 10 L10.5 8.5 Z" />
+      <path d="M5 3 L5.8 5.2 L8 6 L5.8 6.8 L5 9 L4.2 6.8 L2 6 L4.2 5.2 Z" />
+      <path d="M19 17 L19.6 18.8 L21 19 L19.6 19.6 L19 21 L18.4 19.6 L17 19 L18.4 18.4 Z" />
     </svg>
   );
 }
 
-function PantryIcon({ className }) {
+function BasketIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
@@ -94,7 +80,7 @@ function PantryIcon({ className }) {
   );
 }
 
-function SavedIcon({ className }) {
+function BookmarkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
@@ -107,6 +93,16 @@ function ProfileIcon({ className }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+function SignInIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <polyline points="10 17 15 12 10 7" />
+      <line x1="15" y1="12" x2="3" y2="12" />
     </svg>
   );
 }

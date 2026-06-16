@@ -1,0 +1,324 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #D75A4A; --primary-dark: #D24735; --primary-light: #E08074;
+    --secondary: #A8B39A; --app-bg: #FAF9F6; --card-bg: #FFFFFF;
+    --border: rgba(0,0,0,0.1); --tab-h: 64px;
+  }
+  .wf-root { display:flex; flex-direction:column; align-items:center; padding:1.5rem 0.5rem; gap:3rem; font-family:var(--font-sans,sans-serif); }
+  .screen-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .screen-label { font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-text-secondary); text-align:center; }
+  .phone { width:320px; background:var(--app-bg); border-radius:28px; border:1.5px solid rgba(0,0,0,0.13); overflow:hidden; display:flex; flex-direction:column; }
+  .status-bar { display:flex; justify-content:space-between; align-items:center; padding:10px 20px 4px; font-size:11px; color:var(--color-text-secondary); }
+  .top-nav { padding:4px 16px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .top-nav h1 { font-size:22px; font-weight:500; color:var(--color-text-primary); }
+  .content { flex:1; padding:0 14px; display:flex; flex-direction:column; gap:14px; }
+  .section-label { font-size:11px; font-weight:500; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-secondary); margin-bottom:-4px; }
+  .card { background:var(--card-bg); border-radius:16px; border:0.5px solid var(--border); padding:14px; }
+  .divider { height:0.5px; background:var(--border); }
+  .page-bottom { height:10px; }
+  .tab-bar { height:var(--tab-h); background:var(--card-bg); border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-around; padding:0 8px; flex-shrink:0; }
+  .tab-item { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; font-size:10px; color:var(--color-text-secondary); padding:8px 0; }
+  .tab-item i { font-size:22px; }
+  .tab-item.active { color:var(--primary); }
+  .chips-row { display:flex; gap:7px; flex-wrap:wrap; }
+  .chip { border-radius:20px; padding:6px 14px; font-size:13px; border:0.5px solid var(--border); background:var(--card-bg); color:var(--color-text-secondary); }
+  .chip.active { background:var(--primary); color:white; border-color:var(--primary); }
+  .search-bar { display:flex; align-items:center; gap:8px; background:var(--card-bg); border:0.5px solid var(--border); border-radius:14px; padding:10px 14px; color:var(--color-text-secondary); font-size:13px; }
+
+  .recipe-card { background:var(--card-bg); border-radius:16px; border:0.5px solid var(--border); overflow:hidden; }
+  .recipe-card-main { display:flex; align-items:stretch; }
+  .recipe-thumb { width:80px; background:var(--secondary); opacity:0.25; flex-shrink:0; min-height:76px; }
+  .recipe-body { padding:10px 12px; flex:1; display:flex; flex-direction:column; gap:5px; }
+  .recipe-name { font-size:14px; font-weight:500; color:var(--color-text-primary); }
+  .recipe-meta { display:flex; gap:10px; font-size:11px; color:var(--color-text-secondary); align-items:center; }
+  .recipe-meta i { font-size:13px; }
+  .recipe-tags { display:flex; gap:5px; flex-wrap:wrap; }
+  .r-tag { font-size:10px; background:#FAF0EF; color:#A32D2D; border-radius:6px; padding:2px 7px; }
+  .r-tag-chef { font-size:10px; background:#FAF0EF; color:#A32D2D; border-radius:6px; padding:2px 7px; display:flex; align-items:center; gap:3px; }
+  .match-bar-wrap { padding:8px 12px 10px; border-top:0.5px solid var(--border); display:flex; align-items:center; gap:8px; }
+  .match-bar-bg { flex:1; height:5px; background:#F0F0ED; border-radius:3px; overflow:hidden; }
+  .match-bar-fill { height:100%; border-radius:3px; background:var(--secondary); }
+  .match-bar-fill.high { background:#639922; }
+  .match-bar-fill.mid { background:var(--secondary); }
+  .match-bar-fill.low { background:#BA7517; }
+  .match-pct { font-size:11px; font-weight:500; color:var(--color-text-secondary); white-space:nowrap; }
+  .match-pct.high { color:#3B6D11; }
+  .match-pct.mid { color:#5F5E5A; }
+  .match-pct.low { color:#854F0B; }
+
+  .expanded-recipe { background:var(--card-bg); border-radius:16px; border:2px solid var(--primary); overflow:hidden; }
+  .expanded-header { background:var(--primary); padding:14px; color:white; }
+  .expanded-title { font-size:16px; font-weight:500; margin-bottom:5px; }
+  .expanded-meta { display:flex; gap:12px; font-size:12px; opacity:0.85; }
+  .expanded-meta-item { display:flex; align-items:center; gap:4px; }
+  .expanded-meta-item i { font-size:13px; }
+  .expanded-body { padding:12px 14px; display:flex; flex-direction:column; gap:12px; }
+  .ing-row-sm { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:0.5px solid var(--border); font-size:12px; }
+  .ing-row-sm:last-child { border-bottom:none; }
+  .ing-left { display:flex; align-items:center; gap:6px; color:var(--color-text-primary); }
+  .ing-left i { font-size:13px; }
+  .ing-right-sm { display:flex; align-items:center; gap:6px; }
+  .ing-qty-sm { color:var(--color-text-secondary); }
+  .tag-pantry-sm { font-size:10px; color:#3B6D11; background:#EAF3DE; border-radius:5px; padding:2px 6px; }
+  .tag-missing-sm { font-size:10px; color:#854F0B; background:#FAEEDA; border-radius:5px; padding:2px 6px; }
+  .step-row-sm { display:flex; gap:9px; align-items:flex-start; }
+  .step-num-sm { width:20px; height:20px; border-radius:50%; background:#FAF0EF; color:#A32D2D; font-size:11px; font-weight:500; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .step-text-sm { font-size:12px; color:var(--color-text-primary); line-height:1.5; }
+  .expanded-cta-row { display:flex; gap:8px; }
+  .btn-cook { flex:2; background:var(--primary); color:white; border:none; border-radius:12px; padding:11px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .btn-delete { flex:1; background:var(--card-bg); color:#A32D2D; border:0.5px solid rgba(210,71,53,0.3); border-radius:12px; padding:11px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .chef-badge-sm { font-size:10px; background:#FAF0EF; color:#A32D2D; border-radius:20px; padding:2px 8px; display:inline-flex; align-items:center; gap:3px; }
+
+  .profile-header { display:flex; flex-direction:column; align-items:center; gap:8px; padding:4px 0 8px; }
+  .avatar { width:68px; height:68px; border-radius:50%; background:var(--secondary); opacity:0.4; border:3px solid #E08074; }
+  .profile-name { font-size:17px; font-weight:500; color:var(--color-text-primary); }
+  .profile-sub { font-size:12px; color:var(--color-text-secondary); }
+  .profile-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .p-stat { background:var(--card-bg); border-radius:12px; border:0.5px solid var(--border); padding:10px 8px; text-align:center; }
+  .p-val { font-size:18px; font-weight:500; color:var(--primary); }
+  .p-lbl { font-size:10px; color:var(--color-text-secondary); margin-top:2px; }
+  .pref-row { display:flex; align-items:center; justify-content:space-between; padding:11px 0; }
+  .pref-row+.pref-row { border-top:0.5px solid var(--border); }
+  .pref-left { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--color-text-primary); }
+  .pref-left i { font-size:17px; color:var(--color-text-secondary); }
+  .toggle { width:36px; height:20px; border-radius:10px; background:#D3D1C7; position:relative; flex-shrink:0; }
+  .toggle.on { background:var(--primary); }
+  .toggle::after { content:''; position:absolute; width:14px; height:14px; background:white; border-radius:50%; top:3px; left:3px; }
+  .toggle.on::after { left:19px; }
+  .chef-influence-note { display:flex; align-items:flex-start; gap:7px; background:#FAF0EF; border-radius:10px; padding:9px 11px; font-size:11px; color:#712B13; line-height:1.5; }
+  .chef-influence-note i { font-size:14px; color:var(--primary); flex-shrink:0; margin-top:1px; }
+  .pref-arrow { color:var(--color-text-secondary); font-size:16px; }
+  .danger-row { color:#A32D2D; }
+  .danger-row i { color:#A32D2D !important; }
+</style>
+
+<div class="wf-root">
+
+  <!-- SAVED — COLLAPSED LIST -->
+  <div class="screen-wrap">
+    <p class="screen-label">Saved — List view</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="top-nav">
+        <h1>Saved recipes</h1>
+        <div style="font-size:12px;color:var(--color-text-secondary)">8 recipes</div>
+      </div>
+      <div class="content">
+        <div class="search-bar"><i class="ti ti-search" aria-hidden="true"></i><span>Search saved recipes…</span></div>
+        <div class="chips-row">
+          <div class="chip active">All</div>
+          <div class="chip">Breakfast</div>
+          <div class="chip">Lunch</div>
+          <div class="chip">Dinner</div>
+          <div class="chip">Chef picks</div>
+        </div>
+
+        <div class="recipe-card">
+          <div class="recipe-card-main">
+            <div class="recipe-thumb"></div>
+            <div class="recipe-body">
+              <div class="recipe-name">Spiced Tomato &amp; Feta Shakshuka</div>
+              <div class="recipe-meta"><i class="ti ti-clock" aria-hidden="true"></i>30 min<i class="ti ti-chef-hat" aria-hidden="true" style="margin-left:4px"></i>Easy</div>
+              <div class="recipe-tags">
+                <span class="r-tag">Dinner</span>
+                <span class="r-tag-chef"><i class="ti ti-sparkles" aria-hidden="true" style="font-size:10px"></i>Chef</span>
+              </div>
+            </div>
+          </div>
+          <div class="match-bar-wrap">
+            <div class="match-bar-bg"><div class="match-bar-fill high" style="width:94%"></div></div>
+            <span class="match-pct high">94% in pantry</span>
+          </div>
+        </div>
+
+        <div class="recipe-card">
+          <div class="recipe-card-main">
+            <div class="recipe-thumb"></div>
+            <div class="recipe-body">
+              <div class="recipe-name">Avocado &amp; Poached Egg Toast</div>
+              <div class="recipe-meta"><i class="ti ti-clock" aria-hidden="true"></i>10 min<i class="ti ti-chef-hat" aria-hidden="true" style="margin-left:4px"></i>Easy</div>
+              <div class="recipe-tags"><span class="r-tag">Breakfast</span></div>
+            </div>
+          </div>
+          <div class="match-bar-wrap">
+            <div class="match-bar-bg"><div class="match-bar-fill mid" style="width:60%"></div></div>
+            <span class="match-pct mid">60% in pantry</span>
+          </div>
+        </div>
+
+        <div class="recipe-card">
+          <div class="recipe-card-main">
+            <div class="recipe-thumb"></div>
+            <div class="recipe-body">
+              <div class="recipe-name">Lemon Garlic Pasta</div>
+              <div class="recipe-meta"><i class="ti ti-clock" aria-hidden="true"></i>20 min<i class="ti ti-chef-hat" aria-hidden="true" style="margin-left:4px"></i>Easy</div>
+              <div class="recipe-tags">
+                <span class="r-tag">Lunch</span>
+                <span class="r-tag-chef"><i class="ti ti-sparkles" aria-hidden="true" style="font-size:10px"></i>Chef</span>
+              </div>
+            </div>
+          </div>
+          <div class="match-bar-wrap">
+            <div class="match-bar-bg"><div class="match-bar-fill low" style="width:40%"></div></div>
+            <span class="match-pct low">40% in pantry</span>
+          </div>
+        </div>
+
+        <div class="page-bottom"></div>
+      </div>
+      <div class="tab-bar">
+        <div class="tab-item"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+        <div class="tab-item"><i class="ti ti-sparkles" aria-hidden="true"></i><span>Chef</span></div>
+        <div class="tab-item"><i class="ti ti-basket" aria-hidden="true"></i><span>Pantry</span></div>
+        <div class="tab-item active"><i class="ti ti-bookmark" aria-hidden="true"></i><span>Saved</span></div>
+        <div class="tab-item"><i class="ti ti-user" aria-hidden="true"></i><span>Profile</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED — EXPANDED CARD -->
+  <div class="screen-wrap">
+    <p class="screen-label">Saved — Expanded recipe card</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="top-nav">
+        <h1>Saved recipes</h1>
+        <div style="font-size:12px;color:var(--color-text-secondary)">8 recipes</div>
+      </div>
+      <div class="content">
+        <div class="search-bar"><i class="ti ti-search" aria-hidden="true"></i><span>Search saved recipes…</span></div>
+        <div class="chips-row">
+          <div class="chip active">All</div>
+          <div class="chip">Breakfast</div>
+          <div class="chip">Lunch</div>
+          <div class="chip">Dinner</div>
+          <div class="chip">Chef picks</div>
+        </div>
+
+        <div class="expanded-recipe">
+          <div class="expanded-header">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+              <div class="expanded-title">Spiced Tomato &amp; Feta Shakshuka</div>
+              <span class="chef-badge-sm"><i class="ti ti-sparkles" aria-hidden="true" style="font-size:10px"></i>Chef</span>
+            </div>
+            <div class="expanded-meta">
+              <div class="expanded-meta-item"><i class="ti ti-clock" aria-hidden="true"></i>30 min</div>
+              <div class="expanded-meta-item"><i class="ti ti-chef-hat" aria-hidden="true"></i>Easy</div>
+              <div class="expanded-meta-item"><i class="ti ti-users" aria-hidden="true"></i>2 servings</div>
+            </div>
+          </div>
+          <div class="match-bar-wrap" style="border-top:none;padding-top:10px">
+            <div class="match-bar-bg"><div class="match-bar-fill high" style="width:94%"></div></div>
+            <span class="match-pct high">94% in pantry</span>
+          </div>
+          <div class="expanded-body">
+            <p class="section-label">Ingredients</p>
+            <div style="background:var(--app-bg);border-radius:12px;padding:2px 10px;">
+              <div class="ing-row-sm"><div class="ing-left"><i class="ti ti-circle-check" aria-hidden="true" style="color:#3B6D11"></i>Tomatoes</div><div class="ing-right-sm"><span class="ing-qty-sm">3 pcs</span><span class="tag-pantry-sm">In pantry</span></div></div>
+              <div class="ing-row-sm"><div class="ing-left"><i class="ti ti-circle-check" aria-hidden="true" style="color:#3B6D11"></i>Eggs</div><div class="ing-right-sm"><span class="ing-qty-sm">4 pcs</span><span class="tag-pantry-sm">In pantry</span></div></div>
+              <div class="ing-row-sm"><div class="ing-left"><i class="ti ti-circle-check" aria-hidden="true" style="color:#3B6D11"></i>Feta cheese</div><div class="ing-right-sm"><span class="ing-qty-sm">80 g</span><span class="tag-pantry-sm">In pantry</span></div></div>
+              <div class="ing-row-sm"><div class="ing-left"><i class="ti ti-alert-circle" aria-hidden="true" style="color:#BA7517"></i>Cumin</div><div class="ing-right-sm"><span class="ing-qty-sm">1 tsp</span><span class="tag-missing-sm">Missing</span></div></div>
+            </div>
+            <p class="section-label">Steps</p>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div class="step-row-sm"><div class="step-num-sm">1</div><div class="step-text-sm">Heat olive oil. Sauté garlic and onion until soft, about 4 minutes.</div></div>
+              <div class="step-row-sm"><div class="step-num-sm">2</div><div class="step-text-sm">Add tomatoes and spices. Simmer 10 min until thickened.</div></div>
+              <div class="step-row-sm"><div class="step-num-sm">3</div><div class="step-text-sm">Create wells, crack eggs in. Cover and cook 5–7 min.</div></div>
+              <div class="step-row-sm"><div class="step-num-sm">4</div><div class="step-text-sm">Crumble feta on top and serve straight from the pan.</div></div>
+            </div>
+            <div class="expanded-cta-row">
+              <button class="btn-cook"><i class="ti ti-chef-hat" aria-hidden="true" style="font-size:15px"></i> Cook this</button>
+              <button class="btn-delete"><i class="ti ti-trash" aria-hidden="true" style="font-size:15px"></i> Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="page-bottom"></div>
+      </div>
+      <div class="tab-bar">
+        <div class="tab-item"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+        <div class="tab-item"><i class="ti ti-sparkles" aria-hidden="true"></i><span>Chef</span></div>
+        <div class="tab-item"><i class="ti ti-basket" aria-hidden="true"></i><span>Pantry</span></div>
+        <div class="tab-item active"><i class="ti ti-bookmark" aria-hidden="true"></i><span>Saved</span></div>
+        <div class="tab-item"><i class="ti ti-user" aria-hidden="true"></i><span>Profile</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="screen-wrap">
+    <p class="screen-label">Profile</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="top-nav">
+        <h1>Profile</h1>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--color-text-secondary)"><i class="ti ti-settings" aria-hidden="true" style="font-size:20px"></i></div>
+      </div>
+      <div class="content">
+
+        <div class="profile-header">
+          <div class="avatar"></div>
+          <div class="profile-name">Jamie Moreau</div>
+          <div class="profile-sub">Home cook · Montréal</div>
+        </div>
+
+        <div class="profile-stats">
+          <div class="p-stat"><div class="p-val">8</div><div class="p-lbl">Saved</div></div>
+          <div class="p-stat"><div class="p-val">14</div><div class="p-lbl">Pantry items</div></div>
+          <div class="p-stat"><div class="p-val">23</div><div class="p-lbl">Cooked</div></div>
+        </div>
+
+        <p class="section-label">Dietary preferences</p>
+        <div class="chef-influence-note">
+          <i class="ti ti-sparkles" aria-hidden="true"></i>
+          <span>Chef uses these automatically. You can override them per generation on the Chef screen.</span>
+        </div>
+        <div class="card" style="padding:2px 14px;">
+          <div class="pref-row">
+            <div class="pref-left"><i class="ti ti-leaf" aria-hidden="true"></i>Vegetarian</div>
+            <div class="toggle"></div>
+          </div>
+          <div class="pref-row">
+            <div class="pref-left"><i class="ti ti-wheat" aria-hidden="true"></i>Gluten-free</div>
+            <div class="toggle"></div>
+          </div>
+          <div class="pref-row">
+            <div class="pref-left"><i class="ti ti-barbell" aria-hidden="true"></i>High protein</div>
+            <div class="toggle on"></div>
+          </div>
+          <div class="pref-row">
+            <div class="pref-left"><i class="ti ti-heart" aria-hidden="true"></i>Macro tracking</div>
+            <div class="toggle on"></div>
+          </div>
+        </div>
+
+        <p class="section-label">Account</p>
+        <div class="card" style="padding:2px 14px;">
+          <div class="pref-row">
+            <div class="pref-left"><i class="ti ti-user" aria-hidden="true"></i>Edit profile</div>
+            <i class="ti ti-chevron-right pref-arrow" aria-hidden="true"></i>
+          </div>
+          <div class="pref-row">
+            <div class="pref-left"><i class="ti ti-bell" aria-hidden="true"></i>Notifications</div>
+            <i class="ti ti-chevron-right pref-arrow" aria-hidden="true"></i>
+          </div>
+          <div class="pref-row danger-row">
+            <div class="pref-left danger-row"><i class="ti ti-logout" aria-hidden="true"></i>Log out</div>
+          </div>
+        </div>
+
+        <div class="page-bottom"></div>
+      </div>
+      <div class="tab-bar">
+        <div class="tab-item"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+        <div class="tab-item"><i class="ti ti-sparkles" aria-hidden="true"></i><span>Chef</span></div>
+        <div class="tab-item"><i class="ti ti-basket" aria-hidden="true"></i><span>Pantry</span></div>
+        <div class="tab-item"><i class="ti ti-bookmark" aria-hidden="true"></i><span>Saved</span></div>
+        <div class="tab-item active"><i class="ti ti-user" aria-hidden="true"></i><span>Profile</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,462 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #D75A4A;
+    --primary-dark: #D24735;
+    --secondary: #A8B39A;
+    --app-bg: #FAF9F6;
+    --card-bg: #FFFFFF;
+    --border: rgba(0,0,0,0.1);
+    --tab-h: 64px;
+  }
+  .wf-root {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 1.5rem 0.5rem; gap: 3rem;
+    font-family: var(--font-sans, sans-serif);
+  }
+  .screen-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .screen-label {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--color-text-secondary); text-align: center;
+  }
+  .phone {
+    width: 320px; background: var(--app-bg);
+    border-radius: 28px; border: 1.5px solid rgba(0,0,0,0.13);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px 4px; font-size: 11px; color: var(--color-text-secondary);
+  }
+  .top-nav {
+    padding: 4px 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .top-nav h1 { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+  .content { flex: 1; padding: 0 14px; display: flex; flex-direction: column; gap: 14px; }
+  .section-label {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: -4px;
+  }
+  .card { background: var(--card-bg); border-radius: 16px; border: 0.5px solid var(--border); padding: 14px; }
+  .divider { height: 0.5px; background: var(--border); }
+  .tab-bar {
+    height: var(--tab-h); background: var(--card-bg); border-top: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: space-around; padding: 0 8px; flex-shrink: 0;
+  }
+  .tab-item { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; font-size: 10px; color: var(--color-text-secondary); padding: 8px 0; }
+  .tab-item i { font-size: 22px; }
+  .tab-item.active { color: var(--primary); }
+  .page-bottom { height: 10px; }
+
+  /* Pantry main */
+  .search-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 14px; padding: 10px 14px;
+    color: var(--color-text-secondary); font-size: 13px;
+  }
+  .chips-row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip { border-radius: 20px; padding: 6px 14px; font-size: 13px; border: 0.5px solid var(--border); background: var(--card-bg); color: var(--color-text-secondary); }
+  .chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .cat-row { display: flex; align-items: center; justify-content: space-between; }
+  .cat-name { font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--color-text-secondary); }
+  .ing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ing-tile { background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+  .ing-icon { width: 32px; height: 32px; border-radius: 10px; background: var(--secondary); opacity: 0.3; flex-shrink: 0; }
+  .ing-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+  .ing-qty { font-size: 11px; color: var(--color-text-secondary); }
+  .fab {
+    position: absolute; bottom: calc(var(--tab-h) + 14px); right: 14px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--primary); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; border: none;
+  }
+
+  /* Full-screen add flow */
+  .fs-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 16px 12px;
+  }
+  .fs-nav .back-btn { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--primary); font-weight: 500; }
+  .fs-nav h1 { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+  .fs-nav .spacer { width: 60px; }
+
+  /* Method tabs */
+  .method-tabs {
+    display: flex; background: var(--card-bg); border-radius: 14px;
+    border: 0.5px solid var(--border); padding: 4px; gap: 2px;
+  }
+  .method-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    gap: 4px; padding: 8px 4px; border-radius: 10px;
+    font-size: 11px; color: var(--color-text-secondary);
+  }
+  .method-tab i { font-size: 20px; }
+  .method-tab.active { background: var(--primary); color: white; }
+
+  /* Scan state */
+  .scan-viewport {
+    background: #1A1A1A; border-radius: 16px;
+    height: 190px; position: relative;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .scan-corner {
+    position: absolute; width: 28px; height: 28px;
+    border-color: white; border-style: solid; opacity: 0.8;
+  }
+  .scan-corner.tl { top: 20px; left: 20px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scan-corner.tr { top: 20px; right: 20px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scan-corner.bl { bottom: 20px; left: 20px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .scan-corner.br { bottom: 20px; right: 20px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .scan-line {
+    position: absolute; left: 20px; right: 20px; height: 1.5px;
+    background: var(--primary); opacity: 0.8; top: 50%;
+  }
+  .scan-hint { font-size: 12px; color: rgba(255,255,255,0.6); text-align: center; margin-top: 4px; }
+  .scan-or {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--color-text-secondary);
+  }
+  .scan-or-line { flex: 1; height: 0.5px; background: var(--border); }
+  .manual-trigger {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 14px; padding: 12px; font-size: 13px;
+    color: var(--color-text-secondary); width: 100%;
+  }
+
+  /* Voice state */
+  .voice-area {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 14px; padding: 8px 0 4px;
+  }
+  .mic-ring {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: #FAF0EF; border: 2px solid #E08074;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mic-ring i { font-size: 34px; color: var(--primary); }
+  .voice-hint { font-size: 13px; color: var(--color-text-secondary); text-align: center; line-height: 1.5; }
+  .voice-example {
+    background: var(--card-bg); border-radius: 12px; border: 0.5px solid var(--border);
+    padding: 10px 14px; font-size: 12px; color: var(--color-text-secondary);
+    font-style: italic; text-align: center; width: 100%;
+  }
+  .voice-parsed {
+    width: 100%; display: flex; flex-direction: column; gap: 8px;
+  }
+  .parsed-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card-bg); border-radius: 12px; border: 0.5px solid var(--border);
+    padding: 10px 12px;
+  }
+  .parsed-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); display: flex; align-items: center; gap: 7px; }
+  .parsed-name i { font-size: 14px; color: #3B6D11; }
+  .parsed-qty { font-size: 12px; color: var(--color-text-secondary); }
+  .voice-add-btn {
+    background: var(--primary); color: white; border: none;
+    border-radius: 14px; padding: 13px; font-size: 14px; font-weight: 500;
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  /* Manual state */
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); }
+  .form-input {
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 11px 14px;
+    font-size: 13px; color: var(--color-text-secondary);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .autosuggest-list {
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 12px; overflow: hidden; margin-top: -8px;
+  }
+  .suggest-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-bottom: 0.5px solid var(--border);
+  }
+  .suggest-row:last-child { border-bottom: none; }
+  .suggest-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--secondary); opacity: 0.3; flex-shrink: 0; }
+  .suggest-name { font-size: 13px; color: var(--color-text-primary); }
+  .suggest-cat { font-size: 11px; color: var(--color-text-secondary); }
+
+  /* Qty + unit row */
+  .qty-unit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .unit-selector {
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 11px 14px;
+    font-size: 13px; color: var(--color-text-primary);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .unit-auto-badge {
+    font-size: 10px; background: #EAF3DE; color: #3B6D11;
+    border-radius: 6px; padding: 2px 6px; margin-left: 4px;
+  }
+  .add-item-btn {
+    background: var(--primary); color: white; border: none;
+    border-radius: 14px; padding: 13px; font-size: 14px; font-weight: 500;
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .cat-selector { display: flex; gap: 7px; flex-wrap: wrap; }
+  .cat-chip { border-radius: 20px; padding: 5px 13px; font-size: 12px; border: 0.5px solid var(--border); background: var(--card-bg); color: var(--color-text-secondary); }
+  .cat-chip.active { background: var(--secondary); color: white; border-color: var(--secondary); }
+</style>
+
+<div class="wf-root">
+
+  <!-- PANTRY MAIN -->
+  <div class="screen-wrap">
+    <p class="screen-label">Pantry — Main view</p>
+    <div class="phone" style="position:relative">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="top-nav">
+        <h1 style="font-size:22px;font-weight:500;color:var(--color-text-primary)">My pantry</h1>
+        <div style="font-size:12px;color:var(--color-text-secondary)">14 items</div>
+      </div>
+      <div class="content">
+        <div class="search-bar"><i class="ti ti-search" aria-hidden="true"></i><span>Search ingredients…</span></div>
+        <div class="chips-row">
+          <div class="chip active">All</div>
+          <div class="chip">Produce</div>
+          <div class="chip">Dairy</div>
+          <div class="chip">Grains</div>
+          <div class="chip">Protein</div>
+        </div>
+        <div class="cat-row"><span class="cat-name">Produce</span></div>
+        <div class="ing-grid">
+          <div class="ing-tile"><div class="ing-icon"></div><div><div class="ing-name">Tomatoes</div><div class="ing-qty">3 pcs</div></div></div>
+          <div class="ing-tile"><div class="ing-icon"></div><div><div class="ing-name">Spinach</div><div class="ing-qty">100 g</div></div></div>
+          <div class="ing-tile"><div class="ing-icon"></div><div><div class="ing-name">Garlic</div><div class="ing-qty">6 cloves</div></div></div>
+          <div class="ing-tile"><div class="ing-icon"></div><div><div class="ing-name">Onion</div><div class="ing-qty">2 pcs</div></div></div>
+        </div>
+        <div class="cat-row"><span class="cat-name">Dairy</span></div>
+        <div class="ing-grid">
+          <div class="ing-tile"><div class="ing-icon"></div><div><div class="ing-name">Eggs</div><div class="ing-qty">6 pcs</div></div></div>
+          <div class="ing-tile"><div class="ing-icon"></div><div><div class="ing-name">Feta</div><div class="ing-qty">200 g</div></div></div>
+        </div>
+        <div class="page-bottom"></div>
+      </div>
+      <button class="fab" aria-label="Add ingredient"><i class="ti ti-plus" aria-hidden="true"></i></button>
+      <div class="tab-bar">
+        <div class="tab-item"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+        <div class="tab-item"><i class="ti ti-sparkles" aria-hidden="true"></i><span>Chef</span></div>
+        <div class="tab-item active"><i class="ti ti-basket" aria-hidden="true"></i><span>Pantry</span></div>
+        <div class="tab-item"><i class="ti ti-bookmark" aria-hidden="true"></i><span>Saved</span></div>
+        <div class="tab-item"><i class="ti ti-user" aria-hidden="true"></i><span>Profile</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SCREEN — SCAN TAB -->
+  <div class="screen-wrap">
+    <p class="screen-label">Add item — Scan (default)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="fs-nav">
+        <div class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true" style="font-size:18px"></i> Pantry</div>
+        <h1>Add item</h1>
+        <div class="spacer"></div>
+      </div>
+      <div class="content">
+        <div class="method-tabs">
+          <div class="method-tab active"><i class="ti ti-scan" aria-hidden="true"></i>Scan</div>
+          <div class="method-tab"><i class="ti ti-microphone" aria-hidden="true"></i>Voice</div>
+          <div class="method-tab"><i class="ti ti-pencil" aria-hidden="true"></i>Manual</div>
+        </div>
+        <div class="scan-viewport">
+          <div class="scan-corner tl"></div>
+          <div class="scan-corner tr"></div>
+          <div class="scan-corner bl"></div>
+          <div class="scan-corner br"></div>
+          <div class="scan-line"></div>
+        </div>
+        <p class="scan-hint">Point your camera at a barcode or food label</p>
+        <div class="scan-or">
+          <div class="scan-or-line"></div>
+          <span>or add manually</span>
+          <div class="scan-or-line"></div>
+        </div>
+        <button class="manual-trigger">
+          <i class="ti ti-pencil" aria-hidden="true" style="font-size:17px"></i>
+          Type an ingredient instead
+        </button>
+        <div class="page-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SCREEN — VOICE TAB (listening) -->
+  <div class="screen-wrap">
+    <p class="screen-label">Add item — Voice (listening)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="fs-nav">
+        <div class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true" style="font-size:18px"></i> Pantry</div>
+        <h1>Add item</h1>
+        <div class="spacer"></div>
+      </div>
+      <div class="content">
+        <div class="method-tabs">
+          <div class="method-tab"><i class="ti ti-scan" aria-hidden="true"></i>Scan</div>
+          <div class="method-tab active"><i class="ti ti-microphone" aria-hidden="true"></i>Voice</div>
+          <div class="method-tab"><i class="ti ti-pencil" aria-hidden="true"></i>Manual</div>
+        </div>
+        <div class="voice-area">
+          <div class="mic-ring"><i class="ti ti-microphone" aria-hidden="true"></i></div>
+          <p class="voice-hint">Tap the mic and say your ingredients.<br>You can list multiple at once.</p>
+          <div class="voice-example">"6 eggs, 500g of rice, 2 onions, 1L of milk"</div>
+        </div>
+        <div class="page-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SCREEN — VOICE TAB (parsed result) -->
+  <div class="screen-wrap">
+    <p class="screen-label">Add item — Voice (parsed)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="fs-nav">
+        <div class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true" style="font-size:18px"></i> Pantry</div>
+        <h1>Add item</h1>
+        <div class="spacer"></div>
+      </div>
+      <div class="content">
+        <div class="method-tabs">
+          <div class="method-tab"><i class="ti ti-scan" aria-hidden="true"></i>Scan</div>
+          <div class="method-tab active"><i class="ti ti-microphone" aria-hidden="true"></i>Voice</div>
+          <div class="method-tab"><i class="ti ti-pencil" aria-hidden="true"></i>Manual</div>
+        </div>
+        <p class="section-label">Heard 4 items — confirm to add</p>
+        <div class="voice-parsed">
+          <div class="parsed-row">
+            <div class="parsed-name"><i class="ti ti-circle-check" aria-hidden="true"></i> Eggs</div>
+            <div class="parsed-qty">6 pcs</div>
+          </div>
+          <div class="parsed-row">
+            <div class="parsed-name"><i class="ti ti-circle-check" aria-hidden="true"></i> Rice</div>
+            <div class="parsed-qty">500 g</div>
+          </div>
+          <div class="parsed-row">
+            <div class="parsed-name"><i class="ti ti-circle-check" aria-hidden="true"></i> Onions</div>
+            <div class="parsed-qty">2 pcs</div>
+          </div>
+          <div class="parsed-row">
+            <div class="parsed-name"><i class="ti ti-circle-check" aria-hidden="true"></i> Milk</div>
+            <div class="parsed-qty">1 L</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button style="flex:1;background:var(--card-bg);border:0.5px solid var(--border);border-radius:14px;padding:13px;font-size:14px;font-weight:500;color:var(--color-text-primary);display:flex;align-items:center;justify-content:center;gap:7px">
+            <i class="ti ti-microphone" aria-hidden="true" style="font-size:16px"></i> Redo
+          </button>
+          <button class="voice-add-btn" style="flex:2">
+            <i class="ti ti-circle-plus" aria-hidden="true" style="font-size:16px"></i> Add all to pantry
+          </button>
+        </div>
+        <div class="page-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SCREEN — MANUAL TAB (autosuggest open) -->
+  <div class="screen-wrap">
+    <p class="screen-label">Add item — Manual (autosuggest)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="fs-nav">
+        <div class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true" style="font-size:18px"></i> Pantry</div>
+        <h1>Add item</h1>
+        <div class="spacer"></div>
+      </div>
+      <div class="content">
+        <div class="method-tabs">
+          <div class="method-tab"><i class="ti ti-scan" aria-hidden="true"></i>Scan</div>
+          <div class="method-tab"><i class="ti ti-microphone" aria-hidden="true"></i>Voice</div>
+          <div class="method-tab active"><i class="ti ti-pencil" aria-hidden="true"></i>Manual</div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Ingredient name</label>
+          <div class="form-input" style="border-color: var(--primary);">
+            <span style="color:var(--color-text-primary)">Chick</span>
+            <i class="ti ti-x" aria-hidden="true" style="font-size:16px;color:var(--color-text-secondary)"></i>
+          </div>
+          <div class="autosuggest-list">
+            <div class="suggest-row" style="background:#FAF0EF">
+              <div class="suggest-icon"></div>
+              <div><div class="suggest-name" style="color:var(--primary);font-weight:500">Chicken breast</div><div class="suggest-cat">Protein</div></div>
+            </div>
+            <div class="suggest-row">
+              <div class="suggest-icon"></div>
+              <div><div class="suggest-name">Chickpeas</div><div class="suggest-cat">Legumes</div></div>
+            </div>
+            <div class="suggest-row">
+              <div class="suggest-icon"></div>
+              <div><div class="suggest-name">Chicken thighs</div><div class="suggest-cat">Protein</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="page-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SCREEN — MANUAL TAB (item selected, unit auto-filled) -->
+  <div class="screen-wrap">
+    <p class="screen-label">Add item — Manual (item selected)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi" aria-hidden="true"></i> <i class="ti ti-battery" aria-hidden="true"></i></span></div>
+      <div class="fs-nav">
+        <div class="back-btn"><i class="ti ti-arrow-left" aria-hidden="true" style="font-size:18px"></i> Pantry</div>
+        <h1>Add item</h1>
+        <div class="spacer"></div>
+      </div>
+      <div class="content">
+        <div class="method-tabs">
+          <div class="method-tab"><i class="ti ti-scan" aria-hidden="true"></i>Scan</div>
+          <div class="method-tab"><i class="ti ti-microphone" aria-hidden="true"></i>Voice</div>
+          <div class="method-tab active"><i class="ti ti-pencil" aria-hidden="true"></i>Manual</div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Ingredient name</label>
+          <div class="form-input" style="background:#FAF0EF;border-color:var(--primary)">
+            <span style="color:var(--color-text-primary);font-weight:500">Chicken breast</span>
+            <i class="ti ti-circle-check" aria-hidden="true" style="font-size:16px;color:var(--primary)"></i>
+          </div>
+        </div>
+        <div class="qty-unit-row">
+          <div class="form-field">
+            <label class="form-label">Quantity</label>
+            <div class="form-input"><span style="color:var(--color-text-primary)">500</span></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Unit</label>
+            <div class="unit-selector">
+              <span>g <span class="unit-auto-badge">Auto</span></span>
+              <i class="ti ti-chevron-down" aria-hidden="true" style="font-size:15px;color:var(--color-text-secondary)"></i>
+            </div>
+          </div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Category</label>
+          <div class="cat-selector">
+            <div class="cat-chip">Produce</div>
+            <div class="cat-chip active">Protein</div>
+            <div class="cat-chip">Dairy</div>
+            <div class="cat-chip">Grains</div>
+            <div class="cat-chip">Other</div>
+          </div>
+        </div>
+        <button class="add-item-btn">
+          <i class="ti ti-circle-plus" aria-hidden="true" style="font-size:16px"></i> Add to pantry
+        </button>
+        <div class="page-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+</div>

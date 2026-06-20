@@ -1,0 +1,111 @@
+/**
+ * Plated design tokens
+ *
+ * Single source of truth for all visual values.
+ * Reference: ARCHITECTURE.md + wireframes (home_screen_v2, chef_wireframes,
+ * pantry_screens_v1, saved_and_profile_v2).
+ *
+ * Rules:
+ *  - Never use a hardcoded color in a component — always use a token.
+ *  - Add tokens here when the wireframes introduce a new value.
+ *  - Semantic tokens (--color-tag-*) are preferred over raw palette tokens.
+ */
+
+:root {
+  /* ── Brand palette ─────────────────────────────────────────────────────── */
+  --color-primary:        #D75A4A;   /* coral / tomato red — CTAs, active state */
+  --color-primary-dark:   #D24735;   /* hover / pressed state */
+  --color-primary-light:  #E08074;   /* avatar ring, mic ring border */
+  --color-primary-bg:     #FAF0EF;   /* very light tint — step nums, AI badge bg */
+  --color-primary-text:   #A32D2D;   /* dark red text on primary-bg */
+
+  /* ── Secondary palette (sage green) ───────────────────────────────────── */
+  --color-secondary:      #A8B39A;   /* thumb placeholders, icons, mid match bar */
+
+  /* ── Surface / layout ──────────────────────────────────────────────────── */
+  --color-bg:             #FAF9F6;   /* warm off-white app background */
+  --color-surface:        #FFFFFF;   /* card / sheet background */
+  --color-border:         rgba(0, 0, 0, 0.10);
+  --color-border-strong:  rgba(0, 0, 0, 0.13);  /* phone frame in wireframes */
+
+  /* ── Text ──────────────────────────────────────────────────────────────── */
+  --color-text-primary:   #1A1917;   /* main body / heading text */
+  --color-text-secondary: #6B6A65;   /* muted labels, meta, placeholders */
+  --color-text-disabled:  #A8A7A2;
+
+  /* ── Pantry match — semantic ───────────────────────────────────────────── */
+  /* High ≥ 75 % */
+  --color-match-high-bar:   #639922;
+  --color-match-high-text:  #3B6D11;
+  --color-match-high-bg:    #EAF3DE;   /* "In pantry" tag background */
+
+  /* Mid  40–74 % */
+  --color-match-mid-bar:    #A8B39A;   /* same as --color-secondary */
+  --color-match-mid-text:   #5F5E5A;
+
+  /* Low  < 40 % */
+  --color-match-low-bar:    #BA7517;
+  --color-match-low-text:   #854F0B;
+  --color-match-low-bg:     #FAEEDA;   /* "Missing" tag background */
+  --color-match-low-dark:   #633806;   /* missing-banner body text */
+
+  /* ── Semantic tag colors (shorthand aliases) ───────────────────────────── */
+  --color-tag-in-pantry-bg:   var(--color-match-high-bg);
+  --color-tag-in-pantry-text: var(--color-match-high-text);
+  --color-tag-missing-bg:     var(--color-match-low-bg);
+  --color-tag-missing-text:   var(--color-match-low-text);
+
+  /* ── Toast ─────────────────────────────────────────────────────────────── */
+  --color-toast-bg:     #333333;
+  --color-toast-check:  #97C459;
+
+  /* ── Dietary note panel (Profile) ──────────────────────────────────────── */
+  --color-info-bg:      #FAF0EF;
+  --color-info-text:    #712B13;
+
+  /* ── Pantry note (Chef screen) ─────────────────────────────────────────── */
+  --color-pantry-note-bg:   #F0F4EC;
+  --color-pantry-note-text: #3B6D11;
+
+  /* ── Toggle ────────────────────────────────────────────────────────────── */
+  --color-toggle-off: #D3D1C7;
+  --color-toggle-on:  var(--color-primary);
+
+  /* ── Spacing scale ──────────────────────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 10px;
+  --space-4: 12px;
+  --space-5: 14px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+
+  /* ── Border radius ──────────────────────────────────────────────────────── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   12px;
+  --radius-xl:   14px;
+  --radius-2xl:  16px;
+  --radius-3xl:  20px;
+  --radius-full: 9999px;
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --text-2xs: 10px;
+  --text-xs:  11px;
+  --text-sm:  12px;
+  --text-base: 13px;
+  --text-md:  14px;
+  --text-lg:  16px;
+  --text-xl:  18px;
+  --text-2xl: 20px;
+  --text-3xl: 22px;
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  --tab-height:  64px;
+  --max-width:  480px;
+
+  /* ── Transitions ────────────────────────────────────────────────────────── */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+}

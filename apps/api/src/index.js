@@ -15,9 +15,10 @@ import recipesRoutes from './routes/recipes.js';
 import chefRoutes from './routes/chef.js';
 import savedRoutes from './routes/saved.js';
 import profileRoutes from './routes/profile.js';
+import cookRoutes from './routes/cook.js';
 
 const app = express();
-const PORT = process.env.API_PORT ?? 3001;
+const PORT = process.env.PORT ?? 3001;
 
 // ── Security & parsing ────────────────────────────────────────────────────────
 app.use(helmet());
@@ -39,6 +40,7 @@ app.use('/api/v1/recipes', recipesRoutes);
 app.use('/api/v1/chef', chefRoutes);
 app.use('/api/v1/saved', savedRoutes);
 app.use('/api/v1/profile', profileRoutes);
+app.use('/api/v1/cook', cookRoutes);
 
 // ── 404 catch-all ─────────────────────────────────────────────────────────────
 app.use((_req, res) => {

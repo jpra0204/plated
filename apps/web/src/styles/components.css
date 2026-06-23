@@ -39,10 +39,9 @@ svg { display: block; flex-shrink: 0; }
   margin: 0 auto;
   background: var(--color-bg);
   position: relative;
-  overflow: hidden;
 }
 
-.app-main {
+.app-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;

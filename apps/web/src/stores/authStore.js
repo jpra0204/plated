@@ -4,12 +4,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 /**
  * authStore — global authentication state.
  *
- * Shape mirrors the Firebase user object plus our app-side profile.
+ * Shape mirrors ARCHITECTURE.md §8.
  * Persisted to localStorage so the session survives a page refresh
  * (the token is re-validated on the next API call anyway).
  *
  * Usage:
- *   const { user, token, isLoading } = useAuthStore();
+ *   const { user, token, status } = useAuthStore();
  *   const { setUser, clearAuth } = useAuthStore();
  */
 
@@ -24,11 +24,14 @@ const useAuthStore = create(
       /** Firebase ID token — injected into every API request via lib/api.js */
       token: null,
 
-      /** True while Firebase is resolving the initial auth state on load */
-      isLoading: true,
+      /** 'loading' while Firebase resolves initial auth state, then 'authenticated' | 'unauthenticated' */
+      status: 'loading',
 
       /** App-side profile fetched from POST /api/v1/auth/sync */
       profile: null,
+
+      /** Stored before auth redirect so the user lands back on their intended page */
+      intendedDestination: null,
 
       // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -46,7 +49,7 @@ const useAuthStore = create(
             photoURL: firebaseUser.photoURL ?? null,
           },
           token: idToken,
-          isLoading: false,
+          status: 'authenticated',
         }),
 
       /**
@@ -58,21 +61,29 @@ const useAuthStore = create(
       /**
        * Called when Firebase reports no signed-in user (initial load complete).
        */
-      setLoading: (isLoading) => set({ isLoading }),
+      setUnauthenticated: () => set({ status: 'unauthenticated' }),
+
+      /**
+       * Store the path the user was trying to reach before being redirected to auth.
+       * @param {string|null} destination
+       */
+      setIntendedDestination: (destination) => set({ intendedDestination: destination }),
 
       /**
        * Called on sign-out — wipes all auth state.
        */
-      clearAuth: () => set({ user: null, token: null, profile: null, isLoading: false }),
+      clearAuth: () =>
+        set({ user: null, token: null, profile: null, status: 'unauthenticated', intendedDestination: null }),
     }),
     {
       name: 'plated-auth',
       storage: createJSONStorage(() => localStorage),
-      // Don't persist isLoading — always start as true until Firebase resolves
+      // Don't persist status — always start as 'loading' until Firebase resolves
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         profile: state.profile,
+        intendedDestination: state.intendedDestination,
       }),
     }
   )

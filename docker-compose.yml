@@ -1,43 +1,19 @@
-version: '3.9'
-
+version: '3.8'
 services:
-  api:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
-    ports:
-      - '3001:3001'
+  postgres:
+    image: postgres:16
     environment:
-      - NODE_ENV=development
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    volumes:
-      - ./apps/api/src:/app/src
-    restart: unless-stopped
+      POSTGRES_DB: plated_dev
+      POSTGRES_USER: plated
+      POSTGRES_PASSWORD: plated
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
 
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+  jaeger:
+    image: jaegertracing/all-in-one:latest
     ports:
-      - '5173:5173'
-    environment:
-      - VITE_API_URL=http://localhost:3001
-    depends_on:
-      - api
-    volumes:
-      - ./apps/web/src:/app/src
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - '6379:6379'
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
+      - '16686:16686'   # Jaeger UI → http://localhost:16686
+      - '4318:4318'     # OTLP HTTP receiver
 
 volumes:
-  redis_data:
+  pgdata:

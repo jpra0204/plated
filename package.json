@@ -7,9 +7,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n web,api -c cyan,green \"npm run dev --workspace=apps/web\" \"npm run dev --workspace=apps/api\"",
+    "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build --workspaces --if-present",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint apps/ packages/ --ext .js,.jsx",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

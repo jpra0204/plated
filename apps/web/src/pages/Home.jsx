@@ -63,13 +63,13 @@ export default function Home() {
       <div className="stats-row">
         <div className="stat-card">
           <BasketIcon className="stat-card__icon" aria-hidden="true" />
-          <span className="stat-card__value">{stats.pantryCount}</span>
-          <span className="stat-card__label">Pantry items</span>
+          <span className="stat-card__val">{stats.pantryCount}</span>
+          <span className="stat-card__lbl">Pantry items</span>
         </div>
         <div className="stat-card">
           <BookmarkIcon className="stat-card__icon" aria-hidden="true" />
-          <span className="stat-card__value">{stats.savedCount}</span>
-          <span className="stat-card__label">Saved recipes</span>
+          <span className="stat-card__val">{stats.savedCount}</span>
+          <span className="stat-card__lbl">Saved recipes</span>
         </div>
       </div>
 

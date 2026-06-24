@@ -12,6 +12,7 @@
 import { Router } from 'express';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
+import { parseTranscript } from '../services/voice.js';
 
 const router = Router();
 router.use(verifyFirebaseToken);
@@ -48,14 +49,74 @@ router.get('/', async (req, res, next) => {
 // ── POST /voice ───────────────────────────────────────────────────────────────
 // Must be declared before /:id to avoid route conflict.
 
-router.post('/voice', async (_req, res) => {
-  res.json({ items: [], message: 'pantry/voice — implemented in step 5.2' });
+router.post('/voice', async (req, res, next) => {
+  try {
+    const { transcript } = req.body;
+    if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
+      return res.status(400).json({ error: { message: 'transcript is required.' } });
+    }
+
+    const user = await getUser(req, res);
+    if (!user) return;
+
+    const catalogue = await db('ingredients').select('id', 'name', 'name_normalized', 'category');
+    const dictionary = catalogue.map(i => ({ id: i.id, name: i.name_normalized }));
+    const catalogueById = Object.fromEntries(catalogue.map(i => [i.id, i]));
+
+    const matched = await parseTranscript(transcript.trim(), dictionary);
+
+    const items = matched.map(m => {
+      const entry = m.canonical ? catalogueById[m.canonical.id] : null;
+      return {
+        name:          entry?.name      ?? m.raw,
+        quantity:      m.quantity       ?? 1,
+        unit:          m.unit           ?? 'pcs',
+        category:      entry?.category  ?? 'other',
+        ingredient_id: entry?.id        ?? null,
+      };
+    });
+
+    return res.json({ items });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /bulk ────────────────────────────────────────────────────────────────
 
-router.post('/bulk', async (_req, res) => {
-  res.status(201).json({ inserted: 0, message: 'pantry/bulk — implemented in step 5.2' });
+router.post('/bulk', async (req, res, next) => {
+  try {
+    const user = await getUser(req, res);
+    if (!user) return;
+
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: { message: 'items must be a non-empty array.' } });
+    }
+
+    for (const item of items) {
+      if (!item.name || !item.category || item.quantity == null || !item.unit) {
+        return res.status(400).json({
+          error: { message: 'Each item requires name, category, quantity, and unit.' },
+        });
+      }
+    }
+
+    const rows = items.map(item => ({
+      user_id:       user.id,
+      ingredient_id: item.ingredient_id ?? null,
+      name:          item.name,
+      category:      item.category,
+      quantity:      item.quantity,
+      unit:          item.unit,
+    }));
+
+    const inserted = await db.transaction(trx => trx('pantry_items').insert(rows).returning('*'));
+
+    return res.status(201).json({ inserted: inserted.length, items: inserted });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST / ────────────────────────────────────────────────────────────────────

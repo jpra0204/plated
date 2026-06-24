@@ -55,7 +55,7 @@
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
 | 5.1 | CLAUDE CODE | Pantry routes + tests | done | pantry.js (GET/POST/PATCH/DELETE + soft-delete + ownership checks); pantry.test.js (14 tests all passing); pre-existing Phase 3 prop-types lint fixed 2026-06-23 |
-| 5.2 | CLAUDE CODE | Voice parsing route (`/pantry/voice`, `/pantry/bulk`) + tests | pending | |
+| 5.2 | CLAUDE CODE | Voice parsing route (`/pantry/voice`, `/pantry/bulk`) + tests | done | gemini.js wired to @google/genai; voice route parses transcript + enriches with catalogue; bulk route uses DB transaction; 15 tests passing 2026-06-23 |
 | 5.3 | CLAUDE CODE | Recipe routes (`trending`, `suggestions`, `:id`) + tests | pending | |
 | 5.4 | CLAUDE CODE | Chef generation + approve routes + tests | pending | |
 | 5.5 | CLAUDE CODE | Saved, Cook, Profile routes + tests | pending | |
@@ -107,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- None currently — run `/plated-next` to continue with step 5.2 (Voice parsing routes + tests).
+- None currently — run `/plated-next` to continue with step 5.3 (Recipe routes + tests).

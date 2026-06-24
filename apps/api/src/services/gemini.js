@@ -1,12 +1,20 @@
-/**
- * Gemini service — wraps Google AI Studio (@google/generative-ai) calls.
- *
- * TODO: replace stubs with real calls once GEMINI_API_KEY is wired up.
- *
- * import { GoogleGenerativeAI } from '@google/generative-ai';
- * const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
- * const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? 'gemini-1.5-flash' });
- */
+import { GoogleGenAI } from '@google/genai';
+
+function getModel() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'your-gemini-api-key') {
+    throw new Error('GEMINI_API_KEY is not configured');
+  }
+  const ai = new GoogleGenAI({ apiKey });
+  return { ai, modelName: process.env.GEMINI_MODEL ?? 'gemini-1.5-flash' };
+}
+
+function extractJSON(text, isArray = false) {
+  const pattern = isArray ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/;
+  const match = text.match(pattern);
+  if (!match) throw new Error('Gemini response contained no parseable JSON');
+  return JSON.parse(match[0]);
+}
 
 /**
  * Build and send the Chef generation prompt.
@@ -15,7 +23,7 @@
  * @param {Array}  params.pantryItems        - User's active pantry items
  * @param {object} params.filters            - { mealType, cookTime, difficulty, cuisine, servings, notes }
  * @param {object} params.preferences        - { vegetarian, glutenFree, highProtein }
- * @param {string[]} params.previousRecipeIds - Recipe IDs already seen this session (avoid repeats)
+ * @param {string[]} params.previousRecipeIds - Recipe IDs already seen this session
  * @returns {Promise<object>} Parsed recipe JSON from Gemini
  */
 export async function buildChefPrompt({ pantryItems, filters, preferences, previousRecipeIds = [] }) {
@@ -57,17 +65,13 @@ Respond ONLY with a valid JSON object in this exact shape:
 }
 `.trim();
 
-  // TODO: implement real Gemini call
-  // const result = await model.generateContent(prompt);
-  // const text = result.response.text();
-  // return JSON.parse(text);
-
-  void prompt;
-  return null;
+  const { ai, modelName } = getModel();
+  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  return extractJSON(response.text, false);
 }
 
 /**
- * Build and send the voice transcript → structured pantry items prompt.
+ * Parse a voice transcript into structured pantry items via Gemini.
  *
  * @param {string} transcript - Raw transcript from Web Speech API
  * @returns {Promise<Array<{name: string, quantity: number, unit: string}>>}
@@ -87,11 +91,7 @@ Respond ONLY with a JSON array:
 ]
 `.trim();
 
-  // TODO: implement real Gemini call
-  // const result = await model.generateContent(prompt);
-  // const text = result.response.text();
-  // return JSON.parse(text);
-
-  void prompt;
-  return [];
+  const { ai, modelName } = getModel();
+  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  return extractJSON(response.text, true);
 }

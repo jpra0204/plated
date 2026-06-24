@@ -4,8 +4,13 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import App from './App.jsx';
+import { initAuthListener } from './lib/firebase.js';
 import './styles/tokens.css';
 import './styles/components.css';
+
+// Start Firebase auth listener before first render so authStore.status is
+// resolved as quickly as possible (avoids a flash of the loading state).
+initAuthListener();
 
 const queryClient = new QueryClient({
   defaultOptions: {

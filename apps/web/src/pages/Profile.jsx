@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState } from 'react';
 import { FAKE_USER, FAKE_STATS } from '../data/fakeData.js';
 

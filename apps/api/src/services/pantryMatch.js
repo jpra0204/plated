@@ -60,6 +60,22 @@ export function findCanonicalIngredient(normalisedName, dictionary) {
 }
 
 /**
+ * Calculate the percentage of a recipe's ingredients that exist in a user's
+ * pantry (case-insensitive name comparison).
+ *
+ * @param {Array<{name: string}>} recipeIngredients
+ * @param {Array<{name: string}>} pantryItems
+ * @returns {number} 0–100
+ */
+export function calculateMatch(recipeIngredients, pantryItems) {
+  const pantryNames = new Set(pantryItems.map(i => i.name.toLowerCase().trim()));
+  const total = recipeIngredients.length;
+  if (total === 0) return 0;
+  const matched = recipeIngredients.filter(i => pantryNames.has(i.name.toLowerCase().trim())).length;
+  return Math.round((matched / total) * 100);
+}
+
+/**
  * Match an array of raw parsed items (from Gemini voice-parse) against a
  * canonical ingredient dictionary.
  *

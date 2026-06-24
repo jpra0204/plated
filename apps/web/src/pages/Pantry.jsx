@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useMemo } from 'react';
 import { FAKE_PANTRY, INGREDIENT_CATALOGUE } from '../data/fakeData.js';
 
@@ -103,7 +104,7 @@ export default function Pantry() {
       ))}
 
       {filtered.length === 0 && (
-        <p className="empty-state">No ingredients match "{search}"</p>
+        <p className="empty-state">No ingredients match &ldquo;{search}&rdquo;</p>
       )}
 
       {/* FAB */}
@@ -229,7 +230,7 @@ function VoiceTab({ onBack }) {
               : 'Tap the mic and say your ingredients.\nYou can list multiple at once.'}
           </p>
           {voiceState === 'idle' && (
-            <div className="voice-example">"6 eggs, 500g of rice, 2 onions, 1L of milk"</div>
+            <div className="voice-example">&ldquo;6 eggs, 500g of rice, 2 onions, 1L of milk&rdquo;</div>
           )}
         </>
       )}

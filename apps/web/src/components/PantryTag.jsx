@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 /**
  * PantryTag — small status pill shown next to recipe ingredients.
  *

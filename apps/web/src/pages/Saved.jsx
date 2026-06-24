@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useMemo } from 'react';
 import MatchBar from '../components/MatchBar.jsx';
 import PantryTag from '../components/PantryTag.jsx';

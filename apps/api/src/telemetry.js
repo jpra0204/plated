@@ -9,7 +9,7 @@
 
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 
 // In OTel SDK v2, the SEMRESATTRS_* constants are deprecated.
@@ -17,7 +17,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 const serviceName = process.env.OTEL_SERVICE_NAME ?? 'plated-api';
 const serviceVersion = process.env.npm_package_version ?? '0.0.0';
 
-const resource = new Resource({
+const resource = resourceFromAttributes({
   'service.name': serviceName,
   'service.version': serviceVersion,
   'deployment.environment': process.env.NODE_ENV ?? 'development',

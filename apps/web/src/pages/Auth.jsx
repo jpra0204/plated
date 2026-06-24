@@ -1,15 +1,47 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from 'firebase/auth';
+import { auth } from '../lib/firebase.js';
+import { post } from '../lib/api.js';
+import useAuthStore from '../stores/authStore.js';
 
 /**
  * Auth — sign-in / create account, full-screen layout (no tab bar).
  *
  * Modes:  'signin' | 'signup'
- * Validation: client-side only — no API calls yet.
- *   - Email must be valid format
- *   - Password ≥ 8 characters
- *   - Confirm password must match (signup only)
+ * Validation: client-side first, then Firebase error codes mapped to messages.
  */
+
+const GOOGLE_PROVIDER = new GoogleAuthProvider();
+
+/** Map Firebase Auth error codes → user-facing messages. */
+function firebaseErrorMessage(code) {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+      return 'Incorrect email or password.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email already exists.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Try again later.';
+    case 'auth/network-request-failed':
+      return 'Network error. Check your connection and try again.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+    default:
+      return 'Something went wrong. Please try again.';
+  }
+}
 
 function validate(mode, { email, password, confirmPassword }) {
   const errors = {};
@@ -23,49 +55,93 @@ function validate(mode, { email, password, confirmPassword }) {
   } else if (password.length < 8) {
     errors.password = 'Password must be at least 8 characters.';
   }
-  if (mode === 'signup') {
-    if (!confirmPassword) {
-      errors.confirmPassword = 'Please confirm your password.';
-    } else if (confirmPassword !== password) {
-      errors.confirmPassword = 'Passwords do not match.';
-    }
+  if (mode === 'signup' && !confirmPassword) {
+    errors.confirmPassword = 'Please confirm your password.';
+  } else if (mode === 'signup' && confirmPassword !== password) {
+    errors.confirmPassword = 'Passwords do not match.';
   }
   return errors;
 }
 
+/** After Firebase sign-in, sync the user to the backend and update the store. */
+async function syncAndStore(firebaseUser) {
+  const idToken = await firebaseUser.getIdToken();
+  useAuthStore.getState().setUser(firebaseUser, idToken);
+
+  try {
+    const profile = await post('/api/v1/auth/sync');
+    useAuthStore.getState().setProfile(profile);
+  } catch {
+    // Sync failure is non-fatal at this stage — backend is partially implemented.
+  }
+}
+
 export default function Auth() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const { intendedDestination, setIntendedDestination } = useAuthStore();
+
+  const [mode, setMode] = useState('signin');
   const [fields, setFields] = useState({ email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   function setField(key, val) {
     setFields(f => ({ ...f, [key]: val }));
-    // Clear error on edit
     if (errors[key]) setErrors(e => { const n = { ...e }; delete n[key]; return n; });
+    if (authError) setAuthError('');
   }
 
-  function handleSubmit(e) {
+  function afterAuth() {
+    const dest = intendedDestination ?? '/';
+    setIntendedDestination(null);
+    navigate(dest, { replace: true });
+  }
+
+  async function handleGoogle() {
+    setAuthError('');
+    setLoading(true);
+    try {
+      const credential = await signInWithPopup(auth, GOOGLE_PROVIDER);
+      await syncAndStore(credential.user);
+      afterAuth();
+    } catch (err) {
+      // User closed the popup — not an error worth showing
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setAuthError(firebaseErrorMessage(err.code));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     const errs = validate(mode, fields);
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
     }
-    // TODO: call Firebase signInWithEmailAndPassword / createUserWithEmailAndPassword
-    // then POST /api/v1/auth/sync → navigate('/')
-    alert(`[Auth stub] ${mode === 'signin' ? 'Sign in' : 'Create account'} with ${fields.email}`);
-  }
 
-  function handleGoogle() {
-    // TODO: call Firebase signInWithPopup(googleProvider)
-    alert('[Auth stub] Continue with Google');
+    setAuthError('');
+    setLoading(true);
+    try {
+      const fn = mode === 'signin' ? signInWithEmailAndPassword : createUserWithEmailAndPassword;
+      const credential = await fn(auth, fields.email, fields.password);
+      await syncAndStore(credential.user);
+      afterAuth();
+    } catch (err) {
+      setAuthError(firebaseErrorMessage(err.code));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function toggleMode() {
     setMode(m => m === 'signin' ? 'signup' : 'signin');
     setErrors({});
+    setAuthError('');
     setFields({ email: '', password: '', confirmPassword: '' });
   }
 
@@ -88,7 +164,7 @@ export default function Auth() {
         </p>
 
         {/* Google SSO */}
-        <button className="btn-google" onClick={handleGoogle}>
+        <button className="btn-google" onClick={handleGoogle} disabled={loading}>
           <GoogleIcon aria-hidden="true" />
           Continue with Google
         </button>
@@ -100,9 +176,11 @@ export default function Auth() {
           <div className="auth-divider__line" />
         </div>
 
+        {/* Firebase-level error (shown above the submit button) */}
+        {authError && <p className="auth-error" role="alert">{authError}</p>}
+
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate>
-          {/* Email */}
           <div className="form-field">
             <label className="form-label" htmlFor="auth-email">Email</label>
             <input
@@ -114,11 +192,11 @@ export default function Auth() {
               onChange={e => setField('email', e.target.value)}
               autoComplete="email"
               inputMode="email"
+              disabled={loading}
             />
             {errors.email && <p className="field-error">{errors.email}</p>}
           </div>
 
-          {/* Password */}
           <div className="form-field">
             <label className="form-label" htmlFor="auth-password">Password</label>
             <div className="auth-input-wrap">
@@ -130,6 +208,7 @@ export default function Auth() {
                 value={fields.password}
                 onChange={e => setField('password', e.target.value)}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                disabled={loading}
               />
               <button
                 type="button"
@@ -143,7 +222,6 @@ export default function Auth() {
             {errors.password && <p className="field-error">{errors.password}</p>}
           </div>
 
-          {/* Confirm password (signup only) */}
           {mode === 'signup' && (
             <div className="form-field">
               <label className="form-label" htmlFor="auth-confirm">Confirm password</label>
@@ -155,27 +233,33 @@ export default function Auth() {
                 value={fields.confirmPassword}
                 onChange={e => setField('confirmPassword', e.target.value)}
                 autoComplete="new-password"
+                disabled={loading}
               />
               {errors.confirmPassword && <p className="field-error">{errors.confirmPassword}</p>}
             </div>
           )}
 
-          <button type="submit" className="btn btn--primary btn--large btn--full" style={{ marginTop: 8 }}>
-            {mode === 'signin' ? 'Sign in' : 'Create account'}
+          <button
+            type="submit"
+            className="btn btn--primary btn--large btn--full"
+            style={{ marginTop: 8 }}
+            disabled={loading}
+          >
+            {loading
+              ? (mode === 'signin' ? 'Signing in…' : 'Creating account…')
+              : (mode === 'signin' ? 'Sign in' : 'Create account')}
           </button>
         </form>
 
-        {/* Mode toggle */}
         <p className="auth-toggle">
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button className="auth-toggle__btn" onClick={toggleMode}>
+          <button className="auth-toggle__btn" onClick={toggleMode} disabled={loading}>
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>
         </p>
       </div>
 
-      {/* Maybe later (back to app without auth) */}
-      <button className="auth-skip" onClick={() => navigate('/')}>
+      <button className="auth-skip" onClick={() => navigate('/')} disabled={loading}>
         Maybe later
       </button>
     </div>

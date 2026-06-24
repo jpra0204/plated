@@ -7,30 +7,167 @@
 
 import { Router } from 'express';
 import verifyFirebaseToken from '../middleware/auth.js';
+import db from '../db/index.js';
+import { buildChefPrompt } from '../services/gemini.js';
 
 const router = Router();
-
 router.use(verifyFirebaseToken);
 
-// POST /api/v1/chef/generate
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function getUser(req, res) {
+  const user = await db('users').where({ firebase_uid: req.user.uid }).first();
+  if (!user) {
+    res.status(401).json({ error: { message: 'User not registered. Call /auth/sync first.' } });
+    return null;
+  }
+  return user;
+}
+
+// ── POST /generate ────────────────────────────────────────────────────────────
+
 router.post('/generate', async (req, res, next) => {
   try {
-    // TODO: load user's pantry, load dietary prefs, check chef_generations for
-    //       previousRecipeIds, call gemini.buildChefPrompt, parse JSON response,
-    //       insert into recipes + recipe_ingredients + recipe_steps,
-    //       insert chef_generations row (status: 'success'), return generationId + recipe
-    res.status(202).json({ generationId: null, recipe: null, message: 'chef/generate placeholder' });
+    const user = await getUser(req, res);
+    if (!user) return;
+
+    const { filters = {}, retryOf = null } = req.body;
+
+    if (!filters.mealType || !filters.cookTime || !filters.difficulty || filters.servings == null) {
+      return res.status(400).json({
+        error: { message: 'filters.mealType, filters.cookTime, filters.difficulty, and filters.servings are required.' },
+      });
+    }
+
+    // Load pantry + preferences + previous recipe IDs in parallel.
+    const [pantryItems, preferences, previousGenerations] = await Promise.all([
+      db('pantry_items').where({ user_id: user.id }).whereNull('deleted_at')
+        .select('name', 'quantity', 'unit', 'category'),
+      db('dietary_preferences').where({ user_id: user.id }).first(),
+      db('chef_generations').where({ user_id: user.id, status: 'success' }).whereNotNull('recipe_id')
+        .select('recipe_id'),
+    ]);
+
+    const previousRecipeIds = previousGenerations.map(g => g.recipe_id);
+
+    // Call Gemini.
+    const generated = await buildChefPrompt({
+      pantryItems,
+      filters,
+      preferences: preferences ?? {},
+      previousRecipeIds,
+    });
+
+    if (!generated || !generated.name) {
+      return res.status(502).json({ error: { message: 'AI generation failed — invalid response.' } });
+    }
+
+    // Persist everything in one transaction.
+    const { generation, recipe } = await db.transaction(async trx => {
+      const [newRecipe] = await trx('recipes').insert({
+        name:          generated.name,
+        source:        'chef_ai',
+        meal_type:     filters.mealType?.toLowerCase() ?? null,
+        cuisine:       generated.cuisine ?? null,
+        difficulty:    generated.difficulty ?? null,
+        cook_time_mins: generated.cook_time_mins ?? null,
+        servings:      generated.servings ?? null,
+        is_public:     false,   // private until approved
+      }).returning('*');
+
+      if (generated.ingredients?.length) {
+        await trx('recipe_ingredients').insert(
+          generated.ingredients.map((ing, idx) => ({
+            recipe_id:    newRecipe.id,
+            name:         ing.name,
+            quantity:     ing.quantity ?? null,
+            unit:         ing.unit ?? null,
+            sort_order:   idx + 1,
+          }))
+        );
+      }
+
+      if (generated.steps?.length) {
+        await trx('recipe_steps').insert(
+          generated.steps.map(step => ({
+            recipe_id:   newRecipe.id,
+            step_number: step.step_number,
+            instruction: step.instruction,
+          }))
+        );
+      }
+
+      const [newGeneration] = await trx('chef_generations').insert({
+        user_id:         user.id,
+        recipe_id:       newRecipe.id,
+        filters:         JSON.stringify(filters),
+        pantry_snapshot: JSON.stringify(pantryItems),
+        status:          'success',
+        retry_of:        retryOf ?? null,
+      }).returning('*');
+
+      return { generation: newGeneration, recipe: newRecipe };
+    });
+
+    // Load full recipe detail for the response.
+    const [ingredients, steps] = await Promise.all([
+      db('recipe_ingredients').where({ recipe_id: recipe.id }).orderBy('sort_order').select('id', 'name', 'quantity', 'unit'),
+      db('recipe_steps').where({ recipe_id: recipe.id }).orderBy('step_number').select('id', 'step_number', 'instruction'),
+    ]);
+
+    return res.status(201).json({
+      generationId: generation.id,
+      recipe: { ...recipe, ingredients, steps },
+    });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/v1/chef/:generationId/approve
+// ── POST /:generationId/approve ───────────────────────────────────────────────
+
 router.post('/:generationId/approve', async (req, res, next) => {
   try {
-    // TODO: verify generationId belongs to req.user, set approved_at on chef_generations,
-    //       insert into saved_recipes (is_chef_pick: true)
-    res.json({ generationId: req.params.generationId, message: 'chef/approve placeholder' });
+    const user = await getUser(req, res);
+    if (!user) return;
+
+    const generation = await db('chef_generations')
+      .where({ id: req.params.generationId, user_id: user.id, status: 'success' })
+      .first();
+
+    if (!generation) {
+      return res.status(404).json({ error: { message: 'Generation not found.' } });
+    }
+    if (generation.approved_at) {
+      return res.status(409).json({ error: { message: 'Generation already approved.' } });
+    }
+
+    const { savedRecipe } = await db.transaction(async trx => {
+      // Mark generation approved.
+      await trx('chef_generations')
+        .where({ id: generation.id })
+        .update({ approved_at: trx.fn.now() });
+
+      // Make the recipe visible.
+      await trx('recipes').where({ id: generation.recipe_id }).update({ is_public: true });
+
+      // Add to saved_recipes.
+      const [saved] = await trx('saved_recipes').insert({
+        user_id:     user.id,
+        recipe_id:   generation.recipe_id,
+        is_chef_pick: true,
+      }).onConflict(['user_id', 'recipe_id']).merge(['is_chef_pick']).returning('*');
+
+      return { savedRecipe: saved };
+    });
+
+    const recipe = await db('recipes').where({ id: generation.recipe_id }).first();
+
+    return res.json({
+      savedRecipeId: savedRecipe.id,
+      recipe: { id: recipe.id, name: recipe.name },
+      navigateTo: '/saved',
+    });
   } catch (err) {
     next(err);
   }

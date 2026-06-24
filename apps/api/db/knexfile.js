@@ -8,7 +8,14 @@
  *   npm run seed             → knex seed:run
  */
 
-import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import dotenv from 'dotenv';
+
+// Knex changes CWD to this file's directory before loading it, so we must
+// resolve .env relative to the file location rather than relying on CWD.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 /** @type {import('knex').Knex.Config} */
 const config = {

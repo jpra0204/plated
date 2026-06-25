@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useState } from 'react';
 import PantryTag from '../components/PantryTag.jsx';
 import Toast from '../components/Toast.jsx';

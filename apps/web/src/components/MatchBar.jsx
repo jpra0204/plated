@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 /**
  * MatchBar — horizontal progress bar showing pantry match %.
  *

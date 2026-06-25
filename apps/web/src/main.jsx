@@ -15,9 +15,10 @@ initAuthListener();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Stale time of 60 s — avoids refetching on every tab focus during dev
       staleTime: 60_000,
       retry: 1,
+      // Disabled globally; enabled per-query where needed (e.g. suggestions on Home)
+      refetchOnWindowFocus: false,
     },
   },
 });

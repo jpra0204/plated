@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RecipeCard from '../components/RecipeCard.jsx';

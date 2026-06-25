@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useState, useMemo } from 'react';
 import { FAKE_PANTRY, INGREDIENT_CATALOGUE } from '../data/fakeData.js';
 

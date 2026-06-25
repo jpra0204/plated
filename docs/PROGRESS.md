@@ -12,10 +12,6 @@
 | 0.2 | YOU | Create GCP project (`plated-dev`) | done | Confirmed by user 2026-06-23; billing enabled |
 | 0.3 | YOU | Create Firebase project, enable Google + Email/Password providers | done | Confirmed by user 2026-06-23; linked to plated-dev GCP project |
 | 0.4 | YOU | Enable GCP APIs (Cloud Run, Cloud SQL, Artifact Registry, Secret Manager) | done | Confirmed by user 2026-06-23; all four APIs enabled |
-| 0.1 | YOU | Create dedicated Google account | done | Confirmed by user 2026-06-23 |
-| 0.2 | YOU | Create GCP project (`plated-dev`) | done | Confirmed by user 2026-06-23; billing enabled |
-| 0.3 | YOU | Create Firebase project, enable Google + Email/Password providers | done | Confirmed by user 2026-06-23; linked to plated-dev GCP project |
-| 0.4 | YOU | Enable GCP APIs (Cloud Run, Cloud SQL, Artifact Registry, Secret Manager) | done | Confirmed by user 2026-06-23; all four APIs enabled |
 
 ## Phase 1 — Repo cleanup & monorepo scaffold
 
@@ -68,8 +64,7 @@
 
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
-| 6.1 | CLAUDE CODE | API client + React Query setup, query key constants | pending | lib/api.js base wrapper already implemented in 1.3; needs queryKeys.js and React Query defaults |
-| 6.1 | CLAUDE CODE | API client + React Query setup, query key constants | pending | lib/api.js base wrapper already implemented in 1.3; needs queryKeys.js and React Query defaults |
+| 6.1 | CLAUDE CODE | API client + React Query setup, query key constants | done | queryKeys.js created; React Query defaults updated (refetchOnWindowFocus: false globally); ESLint fixed and clean (installed eslint-plugin-react, fixed config to target .js/.jsx) 2026-06-25 |
 | 6.2 | CLAUDE CODE | Wire Home screen to real data | pending | |
 | 6.3 | CLAUDE CODE | Wire Chef screen to real data | pending | |
 | 6.4 | CLAUDE CODE | Wire Pantry screen to real data | pending | |
@@ -112,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- None currently — run `/plated-next` to continue with step 6.1 (API client + React Query setup).
+- None currently — run `/plated-next` to continue with step 6.2 (Wire Home screen to real data).

@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { NavLink, useLocation } from 'react-router-dom';
 import useAuthStore from '../stores/authStore.js';
 

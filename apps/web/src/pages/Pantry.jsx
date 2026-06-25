@@ -1,31 +1,44 @@
- 
 import { useState, useMemo } from 'react';
-import { FAKE_PANTRY, INGREDIENT_CATALOGUE } from '../data/fakeData.js';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Toast from '../components/Toast.jsx';
+import { get, post, patch, del } from '../lib/api.js';
+import { queryKeys } from '../lib/queryKeys.js';
 
 /**
  * Pantry — main grid view + full-screen Add Item flow.
  *
  * States:
- *   view='main'     → ingredient grid with category filters + FAB
- *   view='add'      → full-screen Add Item sheet (Scan / Voice / Manual tabs)
- *
- * Add Item sub-states (tab):
- *   'scan'     → camera viewport placeholder + manual fallback
- *   'voice'    → mic button; voiceState='idle'|'listening'|'parsed'
- *   'manual'   → autosuggest input → item confirmation form
+ *   view='main'  → ingredient grid with category filters + FAB
+ *   view='add'   → full-screen Add Item sheet (Scan / Voice / Manual tabs)
  */
 
 const CATEGORIES = ['All', 'Produce', 'Dairy', 'Grains', 'Protein', 'Other'];
 
 export default function Pantry() {
-  const [view, setView] = useState('main');   // 'main' | 'add'
+  const queryClient = useQueryClient();
+  const [view, setView] = useState('main');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [toast, setToast] = useState({ visible: false, message: '' });
+  const [editingId, setEditingId] = useState(null);   // item ID being inline-edited
+  const [editDraft, setEditDraft] = useState({});      // { quantity, unit }
 
-  // Flatten pantry for filtering
-  const allItems = useMemo(() => Object.entries(FAKE_PANTRY).flatMap(
-    ([cat, items]) => items.map(item => ({ ...item, category: cat }))
-  ), []);
+  const showToast = (message) => setToast({ visible: true, message });
+
+  // ── Pantry query ──────────────────────────────────────────────────────────
+  const {
+    data: pantryData,
+    isLoading: pantryLoading,
+    isError: pantryError,
+    refetch: refetchPantry,
+  } = useQuery({
+    queryKey: queryKeys.pantry.list(),
+    queryFn: () => get('/api/v1/pantry'),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  const allItems = useMemo(() => pantryData?.items ?? [], [pantryData]);
 
   const filtered = useMemo(() => {
     const bySearch = search
@@ -33,28 +46,88 @@ export default function Pantry() {
       : allItems;
     return activeCategory === 'All'
       ? bySearch
-      : bySearch.filter(i => i.category === activeCategory);
+      : bySearch.filter(i => {
+          const cat = capitalize(i.category);
+          return cat === activeCategory;
+        });
   }, [allItems, search, activeCategory]);
 
-  // Group filtered items by category
   const grouped = useMemo(() => {
     const result = {};
     for (const item of filtered) {
-      (result[item.category] ??= []).push(item);
+      const cat = capitalize(item.category);
+      (result[cat] ??= []).push(item);
     }
     return result;
   }, [filtered]);
 
-  if (view === 'add') {
-    return <AddItemScreen onBack={() => setView('main')} />;
+  // ── Edit mutation ─────────────────────────────────────────────────────────
+  const editMutation = useMutation({
+    mutationFn: ({ id, quantity, unit }) => patch(`/api/v1/pantry/${id}`, { quantity, unit }),
+    onSuccess: () => {
+      setEditingId(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+    },
+    onError: () => showToast('Could not update item. Please try again.'),
+  });
+
+  // ── Delete mutation ───────────────────────────────────────────────────────
+  const deleteMutation = useMutation({
+    mutationFn: (id) => del(`/api/v1/pantry/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
+      showToast('Removed from pantry');
+    },
+    onError: () => showToast('Could not remove item. Please try again.'),
+  });
+
+  // ── Edit inline helpers ───────────────────────────────────────────────────
+  function startEdit(item) {
+    setEditingId(item.id);
+    setEditDraft({ quantity: String(item.quantity), unit: item.unit });
   }
 
+  function commitEdit(id) {
+    const q = parseFloat(editDraft.quantity);
+    if (isNaN(q) || q <= 0) { setEditingId(null); return; }
+    editMutation.mutate({ id, quantity: q, unit: editDraft.unit });
+  }
+
+  // ── Add item callback (from AddItemScreen) ────────────────────────────────
+  function handleItemAdded() {
+    setView('main');
+    queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
+    showToast('Added to your pantry');
+  }
+
+  // ── Add Item full-screen ──────────────────────────────────────────────────
+  if (view === 'add') {
+    return (
+      <AddItemScreen
+        onBack={() => setView('main')}
+        onAdded={handleItemAdded}
+      />
+    );
+  }
+
+  // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div className="page page--relative">
       <div className="page-header">
         <h1 className="page-title">My pantry</h1>
-        <span className="page-count">{allItems.length} items</span>
+        <span className="page-count">{pantryLoading ? '—' : allItems.length} items</span>
       </div>
+
+      <Toast
+        message={toast.message}
+        visible={toast.visible}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
 
       {/* Search */}
       <div className="search-bar">
@@ -85,26 +158,68 @@ export default function Pantry() {
         ))}
       </div>
 
-      {/* Ingredient grid by category */}
-      {Object.entries(grouped).map(([cat, items]) => (
-        <div key={cat}>
-          <p className="cat-label">{cat}</p>
-          <div className="ing-grid">
-            {items.map(item => (
-              <div key={item.id} className="ing-tile">
-                <div className="ing-tile__icon" aria-hidden="true" />
-                <div>
-                  <div className="ing-tile__name">{item.name}</div>
-                  <div className="ing-tile__qty">{item.quantity} {item.unit}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Content */}
+      {pantryLoading ? (
+        <div className="empty-state"><p>Loading your pantry…</p></div>
+      ) : pantryError ? (
+        <div className="empty-state">
+          <p>Could not load pantry.</p>
+          <button className="btn btn--secondary" onClick={() => refetchPantry()}>Try again</button>
         </div>
-      ))}
-
-      {filtered.length === 0 && (
-        <p className="empty-state">No ingredients match &ldquo;{search}&rdquo;</p>
+      ) : allItems.length === 0 ? (
+        <div className="empty-state">
+          <p>Your pantry is empty. Tap + to add ingredients.</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <p>No ingredients match &ldquo;{search}&rdquo;</p>
+        </div>
+      ) : (
+        Object.entries(grouped).map(([cat, items]) => (
+          <div key={cat}>
+            <p className="cat-label">{cat}</p>
+            <div className="ing-grid">
+              {items.map(item => (
+                <div key={item.id} className="ing-tile">
+                  {editingId === item.id ? (
+                    <EditTile
+                      draft={editDraft}
+                      setDraft={setEditDraft}
+                      onSave={() => commitEdit(item.id)}
+                      onCancel={() => setEditingId(null)}
+                      saving={editMutation.isPending}
+                    />
+                  ) : (
+                    <>
+                      <div className="ing-tile__icon" aria-hidden="true" />
+                      <div className="ing-tile__body">
+                        <div className="ing-tile__name">{item.name}</div>
+                        <div className="ing-tile__qty">{item.quantity} {item.unit}</div>
+                      </div>
+                      <div className="ing-tile__actions">
+                        <button
+                          className="icon-btn"
+                          aria-label={`Edit ${item.name}`}
+                          onClick={() => startEdit(item)}
+                        >
+                          <PencilIcon aria-hidden="true" />
+                        </button>
+                        <button
+                          className="icon-btn icon-btn--danger"
+                          aria-label={`Remove ${item.name}`}
+                          onClick={() => deleteMutation.mutate(item.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <TrashIcon aria-hidden="true" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
       )}
 
       {/* FAB */}
@@ -117,10 +232,40 @@ export default function Pantry() {
   );
 }
 
+// ── Edit tile (inline quantity/unit editor) ───────────────────────────────────
+
+function EditTile({ draft, setDraft, onSave, onCancel, saving }) {
+  return (
+    <div className="ing-tile__edit">
+      <input
+        className="ing-tile__edit-qty"
+        type="number"
+        min="0"
+        value={draft.quantity}
+        onChange={e => setDraft(d => ({ ...d, quantity: e.target.value }))}
+        aria-label="Quantity"
+        autoFocus
+      />
+      <input
+        className="ing-tile__edit-unit"
+        value={draft.unit}
+        onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
+        aria-label="Unit"
+      />
+      <button className="icon-btn" onClick={onSave} disabled={saving} aria-label="Save">
+        <CheckIcon aria-hidden="true" />
+      </button>
+      <button className="icon-btn" onClick={onCancel} disabled={saving} aria-label="Cancel">
+        <XIcon aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 // ── Add Item full-screen ───────────────────────────────────────────────────────
 
-function AddItemScreen({ onBack }) {
-  const [tab, setTab] = useState('scan'); // 'scan' | 'voice' | 'manual'
+function AddItemScreen({ onBack, onAdded }) {
+  const [tab, setTab] = useState('scan');
 
   const TABS = [
     { id: 'scan',   label: 'Scan',   icon: ScanIcon },
@@ -138,7 +283,6 @@ function AddItemScreen({ onBack }) {
         <div className="fs-nav__spacer" />
       </div>
 
-      {/* Method tabs */}
       <div className="method-tabs">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -154,8 +298,8 @@ function AddItemScreen({ onBack }) {
       </div>
 
       {tab === 'scan'   && <ScanTab onSwitchManual={() => setTab('manual')} />}
-      {tab === 'voice'  && <VoiceTab onBack={onBack} />}
-      {tab === 'manual' && <ManualTab onBack={onBack} />}
+      {tab === 'voice'  && <VoiceTab onAdded={onAdded} />}
+      {tab === 'manual' && <ManualTab onAdded={onAdded} />}
 
       <div className="page-bottom" />
     </div>
@@ -187,34 +331,66 @@ function ScanTab({ onSwitchManual }) {
   );
 }
 
-// ── Voice tab ─────────────────────────────────────────────────────────────────
+// ── Voice tab — static UI; real voice wired in step 7.2 ───────────────────────
 
-const FAKE_PARSED = [
-  { name: 'Eggs',   quantity: 6,   unit: 'pcs' },
-  { name: 'Rice',   quantity: 500, unit: 'g' },
-  { name: 'Onions', quantity: 2,   unit: 'pcs' },
-  { name: 'Milk',   quantity: 1,   unit: 'L' },
-];
+function VoiceTab({ onAdded }) {
+  const queryClient = useQueryClient();
+  const [voiceState, setVoiceState] = useState('idle');  // 'idle' | 'listening' | 'parsed'
+  const [parsedItems, setParsedItems] = useState([]);
+  const [toast, setToast] = useState({ visible: false, message: '' });
 
-function VoiceTab({ onBack }) {
-  const [voiceState, setVoiceState] = useState('idle'); // 'idle' | 'listening' | 'parsed'
+  const voiceMutation = useMutation({
+    mutationFn: (transcript) => post('/api/v1/pantry/voice', { transcript }),
+    onSuccess: (data) => {
+      setParsedItems(data.items ?? []);
+      setVoiceState('parsed');
+    },
+    onError: () => {
+      setToast({ visible: true, message: 'Could not parse voice input. Please try again.' });
+      setVoiceState('idle');
+    },
+  });
+
+  const bulkMutation = useMutation({
+    mutationFn: (items) => post('/api/v1/pantry/bulk', { items }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
+      onAdded();
+    },
+    onError: () => setToast({ visible: true, message: 'Could not add items. Please try again.' }),
+  });
 
   function handleMicTap() {
     if (voiceState === 'idle') {
       setVoiceState('listening');
-      // Simulate 2 s of listening then parse
-      setTimeout(() => setVoiceState('parsed'), 2000);
+      // Simulated transcript for now — step 7.1/7.2 wires real Web Speech API
+      setTimeout(() => {
+        voiceMutation.mutate('6 eggs, 500g of rice, 2 onions, 1L of milk');
+      }, 2000);
     } else if (voiceState === 'listening') {
-      setVoiceState('parsed');
+      setVoiceState('idle');
     }
   }
 
   function handleRedo() {
+    setParsedItems([]);
     setVoiceState('idle');
+  }
+
+  function handleAddAll() {
+    bulkMutation.mutate(parsedItems);
   }
 
   return (
     <div className="voice-area">
+      <Toast
+        message={toast.message}
+        visible={toast.visible}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+
       {voiceState !== 'parsed' && (
         <>
           <button
@@ -237,9 +413,9 @@ function VoiceTab({ onBack }) {
 
       {voiceState === 'parsed' && (
         <>
-          <p className="section-label">Heard {FAKE_PARSED.length} items — confirm to add</p>
+          <p className="section-label">Heard {parsedItems.length} items — confirm to add</p>
           <div className="voice-parsed">
-            {FAKE_PARSED.map((item, i) => (
+            {parsedItems.map((item, i) => (
               <div key={i} className="parsed-row">
                 <div className="parsed-row__name">
                   <CheckCircleIcon aria-hidden="true" /> {item.name}
@@ -249,11 +425,16 @@ function VoiceTab({ onBack }) {
             ))}
           </div>
           <div className="cta-row">
-            <button className="btn btn--secondary" onClick={handleRedo}>
+            <button className="btn btn--secondary" onClick={handleRedo} disabled={bulkMutation.isPending}>
               <MicIcon aria-hidden="true" /> Redo
             </button>
-            <button className="btn btn--primary btn--flex2" onClick={onBack}>
-              <PlusCircleIcon aria-hidden="true" /> Add all to pantry
+            <button
+              className="btn btn--primary btn--flex2"
+              onClick={handleAddAll}
+              disabled={bulkMutation.isPending}
+            >
+              <PlusCircleIcon aria-hidden="true" />
+              {bulkMutation.isPending ? 'Adding…' : 'Add all to pantry'}
             </button>
           </div>
         </>
@@ -272,25 +453,44 @@ const UNITS_BY_CAT = {
   Other:   ['g', 'ml', 'tsp', 'tbsp'],
 };
 
-function ManualTab({ onBack }) {
-  const [query, setQuery]         = useState('');
-  const [selected, setSelected]   = useState(null);
-  const [quantity, setQuantity]   = useState('');
-  const [unit, setUnit]           = useState('');
-  const [category, setCategory]   = useState('');
+function ManualTab({ onAdded }) {
+  const queryClient = useQueryClient();
 
+  const [query, setQuery]       = useState('');
+  const [selected, setSelected] = useState(null);
+  const [quantity, setQuantity] = useState('');
+  const [unit, setUnit]         = useState('');
+  const [category, setCategory] = useState('');
+
+  // Ingredient catalogue for autosuggest
+  const { data: catalogueData } = useQuery({
+    queryKey: queryKeys.ingredients.catalogue(),
+    queryFn: () => get('/api/v1/ingredients'),
+    staleTime: Infinity, // catalogue rarely changes
+  });
   const suggestions = useMemo(() => {
     if (!query || selected) return [];
-    return INGREDIENT_CATALOGUE
+    const catalogue = catalogueData?.ingredients ?? [];
+    return catalogue
       .filter(i => i.name.toLowerCase().includes(query.toLowerCase()))
       .slice(0, 5);
-  }, [query, selected]);
+  }, [query, selected, catalogueData]);
+
+  const addMutation = useMutation({
+    mutationFn: (item) => post('/api/v1/pantry', item),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
+      onAdded();
+    },
+  });
 
   function handleSelect(ing) {
     setSelected(ing);
     setQuery(ing.name);
-    setUnit(ing.defaultUnit);
-    setCategory(ing.category);
+    setUnit(ing.default_unit);
+    setCategory(capitalize(ing.category));
   }
 
   function handleClear() {
@@ -300,11 +500,21 @@ function ManualTab({ onBack }) {
     setCategory('');
   }
 
+  function handleAdd() {
+    if (!selected || !quantity) return;
+    addMutation.mutate({
+      name:          selected.name,
+      category:      selected.category,   // DB uses lowercase
+      quantity:      parseFloat(quantity),
+      unit,
+      ingredient_id: selected.id,
+    });
+  }
+
   const unitOptions = UNITS_BY_CAT[category] ?? ['g', 'ml', 'pcs'];
 
   return (
     <>
-      {/* Ingredient name field */}
       <div className="form-field">
         <label className="form-label" htmlFor="ing-name">Ingredient name</label>
         <div className={`form-input ${selected ? 'form-input--selected' : query ? 'form-input--active' : ''}`}>
@@ -326,12 +536,18 @@ function ManualTab({ onBack }) {
         {suggestions.length > 0 && (
           <div className="autosuggest-list">
             {suggestions.map(ing => (
-              <div key={ing.id} className="suggest-row" onClick={() => handleSelect(ing)} role="button" tabIndex={0}
-                onKeyDown={e => e.key === 'Enter' && handleSelect(ing)}>
+              <div
+                key={ing.id}
+                className="suggest-row"
+                onClick={() => handleSelect(ing)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => e.key === 'Enter' && handleSelect(ing)}
+              >
                 <div className="suggest-row__icon" aria-hidden="true" />
                 <div>
                   <div className="suggest-row__name">{ing.name}</div>
-                  <div className="suggest-row__cat">{ing.category}</div>
+                  <div className="suggest-row__cat">{capitalize(ing.category)}</div>
                 </div>
               </div>
             ))}
@@ -341,7 +557,6 @@ function ManualTab({ onBack }) {
 
       {selected && (
         <>
-          {/* Quantity + unit */}
           <div className="qty-unit-row">
             <div className="form-field">
               <label className="form-label" htmlFor="ing-qty">Quantity</label>
@@ -366,14 +581,13 @@ function ManualTab({ onBack }) {
                 >
                   {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
-                {unit === selected.defaultUnit && (
+                {unit === selected.default_unit && (
                   <span className="unit-auto-badge">Auto</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Category */}
           <div className="form-field">
             <label className="form-label">Category</label>
             <div className="chips-row">
@@ -392,15 +606,22 @@ function ManualTab({ onBack }) {
 
           <button
             className="btn btn--primary btn--large btn--full"
-            onClick={onBack}
-            disabled={!quantity}
+            onClick={handleAdd}
+            disabled={!quantity || addMutation.isPending}
           >
-            <PlusCircleIcon aria-hidden="true" /> Add to pantry
+            <PlusCircleIcon aria-hidden="true" />
+            {addMutation.isPending ? 'Adding…' : 'Add to pantry'}
           </button>
         </>
       )}
     </>
   );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function capitalize(str = '') {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -412,4 +633,7 @@ function ArrowLeftIcon(props)  { return <svg {...props} viewBox="0 0 24 24" fill
 function ScanIcon(props)       { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><line x1="3" y1="12" x2="21" y2="12" /></svg>; }
 function MicIcon(props)        { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>; }
 function PencilIcon(props)     { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
+function TrashIcon(props)      { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>; }
 function CheckCircleIcon({ className, ...props }) { return <svg className={className} {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>; }
+function CheckIcon(props)      { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>; }
+function XIcon(props)          { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>; }

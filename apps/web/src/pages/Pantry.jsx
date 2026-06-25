@@ -536,20 +536,18 @@ function ManualTab({ onAdded }) {
         {suggestions.length > 0 && (
           <div className="autosuggest-list">
             {suggestions.map(ing => (
-              <div
+              <button
                 key={ing.id}
                 className="suggest-row"
+                type="button"
                 onClick={() => handleSelect(ing)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => e.key === 'Enter' && handleSelect(ing)}
               >
                 <div className="suggest-row__icon" aria-hidden="true" />
                 <div>
                   <div className="suggest-row__name">{ing.name}</div>
                   <div className="suggest-row__cat">{capitalize(ing.category)}</div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}

@@ -115,9 +115,15 @@ router.post('/generate', async (req, res, next) => {
       db('recipe_steps').where({ recipe_id: recipe.id }).orderBy('step_number').select('id', 'step_number', 'instruction'),
     ]);
 
+    const pantrySet = new Set(pantryItems.map(i => i.name.toLowerCase().trim()));
+    const ingredientsWithPantry = ingredients.map(ing => ({
+      ...ing,
+      in_pantry: pantrySet.has(ing.name.toLowerCase().trim()),
+    }));
+
     return res.status(201).json({
       generationId: generation.id,
-      recipe: { ...recipe, ingredients, steps },
+      recipe: { ...recipe, ingredients: ingredientsWithPantry, steps },
     });
   } catch (err) {
     next(err);

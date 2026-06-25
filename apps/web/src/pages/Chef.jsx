@@ -1,26 +1,30 @@
- 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PantryTag from '../components/PantryTag.jsx';
 import Toast from '../components/Toast.jsx';
-import { FAKE_CHEF_RESULT, FAKE_STATS } from '../data/fakeData.js';
+import { get, post } from '../lib/api.js';
+import { queryKeys } from '../lib/queryKeys.js';
 
 /**
- * Chef — three states from chef_wireframes.html:
+ * Chef — three states:
  *   'input'      → filter chips, servings stepper, notes, "Chef it" button
  *   'generating' → spinner + loading copy
  *   'result'     → recipe detail + missing banner + Approve / Retry buttons
  */
 
-const MEAL_TYPES  = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
-const COOK_TIMES  = ['Under 15 min', '30 min', '1 hr+'];
+const MEAL_TYPES   = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+const COOK_TIMES   = ['Under 15 min', '30 min', '1 hr+'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const CUISINES = [
   '', 'Italian', 'Mediterranean', 'Asian', 'Mexican', 'French', 'Indian', 'Middle Eastern',
 ];
 
 export default function Chef() {
-  const [view, setView] = useState('input'); // 'input' | 'generating' | 'result'
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
+  const [view, setView] = useState('input'); // 'input' | 'generating' | 'result'
   const [filters, setFilters] = useState({
     mealType: 'Lunch',
     cookTime: '30 min',
@@ -29,27 +33,77 @@ export default function Chef() {
     servings: 2,
     notes: '',
   });
-  const [toastVisible, setToastVisible] = useState(false);
+  const [generationId, setGenerationId] = useState(null);
+  const [recipe, setRecipe] = useState(null);
+  const [toast, setToast] = useState({ visible: false, message: '' });
+
+  const showToast = (message) => setToast({ visible: true, message });
+
+  // ── Profile query — for pantry count in InputState ────────────────────────
+  const { data: profileData } = useQuery({
+    queryKey: queryKeys.profile.root(),
+    queryFn: () => get('/api/v1/profile'),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+  const pantryCount = profileData?.profile?.pantryCount ?? null;
 
   function setFilter(key, val) {
     setFilters(f => ({ ...f, [key]: val }));
   }
 
+  // ── Generate mutation ─────────────────────────────────────────────────────
+  const generateMutation = useMutation({
+    mutationFn: ({ filters: f, retryOf }) =>
+      post('/api/v1/chef/generate', { filters: f, retryOf: retryOf ?? null }),
+    onSuccess: (data) => {
+      setGenerationId(data.generationId);
+      setRecipe(normalizeRecipe(data.recipe));
+      setView('result');
+    },
+    onError: () => {
+      showToast('Chef ran into a problem. Please try again.');
+      setView('input');
+    },
+  });
+
+  // ── Approve mutation ──────────────────────────────────────────────────────
+  const approveMutation = useMutation({
+    mutationFn: (genId) => post(`/api/v1/chef/${genId}/approve`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saved.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+      showToast('Recipe approved and saved to your collection!');
+      setView('input');
+      setRecipe(null);
+      setGenerationId(null);
+      navigate('/saved');
+    },
+    onError: () => showToast('Could not approve recipe. Please try again.'),
+  });
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   function handleChefIt() {
     setView('generating');
-    // Simulate API latency (remove when real endpoint is wired)
-    setTimeout(() => setView('result'), 1800);
-  }
-
-  function handleApprove() {
-    setToastVisible(true);
-    setView('input');
+    generateMutation.mutate({ filters, retryOf: null });
   }
 
   function handleRetry() {
     setView('generating');
-    setTimeout(() => setView('result'), 1800);
+    generateMutation.mutate({ filters, retryOf: generationId });
   }
+
+  function handleApprove() {
+    approveMutation.mutate(generationId);
+  }
+
+  function handleAdjust() {
+    setView('input');
+    // filters preserved in state
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="page">
@@ -58,24 +112,35 @@ export default function Chef() {
           Chef <span className="ai-badge">AI</span>
         </h1>
         {view === 'result' && (
-          <button className="text-btn text-btn--primary" onClick={() => setView('input')}>
+          <button className="text-btn text-btn--primary" onClick={handleAdjust}>
             <AdjustIcon aria-hidden="true" /> Adjust
           </button>
         )}
       </div>
 
       <Toast
-        message="Recipe approved and saved to your collection!"
-        visible={toastVisible}
-        onDismiss={() => setToastVisible(false)}
+        message={toast.message}
+        visible={toast.visible}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
       />
 
       {view === 'input' && (
-        <InputState filters={filters} setFilter={setFilter} onSubmit={handleChefIt} />
+        <InputState
+          filters={filters}
+          setFilter={setFilter}
+          pantryCount={pantryCount}
+          onSubmit={handleChefIt}
+        />
       )}
       {view === 'generating' && <GeneratingState />}
-      {view === 'result' && (
-        <ResultState recipe={FAKE_CHEF_RESULT} onApprove={handleApprove} onRetry={handleRetry} />
+      {view === 'result' && recipe && (
+        <ResultState
+          recipe={recipe}
+          onApprove={handleApprove}
+          onRetry={handleRetry}
+          approving={approveMutation.isPending}
+          retrying={generateMutation.isPending}
+        />
       )}
 
       <div className="page-bottom" />
@@ -85,12 +150,18 @@ export default function Chef() {
 
 // ── Input state ───────────────────────────────────────────────────────────────
 
-function InputState({ filters, setFilter, onSubmit }) {
+function InputState({ filters, setFilter, pantryCount, onSubmit }) {
+  const pantryLabel = pantryCount === null
+    ? 'Loading your pantry…'
+    : pantryCount === 0
+      ? 'Your pantry is empty — Chef will improvise'
+      : `Using ${pantryCount} pantry item${pantryCount !== 1 ? 's' : ''} to generate your recipe`;
+
   return (
     <>
       <div className="pantry-note">
         <BasketIcon aria-hidden="true" />
-        <span>Using {FAKE_STATS.pantryCount} pantry items to generate your recipe</span>
+        <span>{pantryLabel}</span>
       </div>
 
       <ChipGroup
@@ -132,7 +203,6 @@ function InputState({ filters, setFilter, onSubmit }) {
 
       <div className="divider" />
 
-      {/* Servings stepper */}
       <div className="card card--row">
         <div>
           <div className="card__title">Servings</div>
@@ -189,12 +259,11 @@ function GeneratingState() {
 
 // ── Result state ──────────────────────────────────────────────────────────────
 
-function ResultState({ recipe, onApprove, onRetry }) {
+function ResultState({ recipe, onApprove, onRetry, approving, retrying }) {
   const missing = recipe.ingredients.filter(i => !i.inPantry);
 
   return (
     <>
-      {/* Recipe header */}
       <div className="result-header">
         <div className="result-header__title">{recipe.name}</div>
         <div className="result-header__meta">
@@ -204,18 +273,15 @@ function ResultState({ recipe, onApprove, onRetry }) {
         </div>
       </div>
 
-      {/* Missing ingredients banner */}
       {missing.length > 0 && (
         <div className="missing-banner">
           <div className="missing-banner__left">
             <CartIcon aria-hidden="true" />
             <span>{missing.length} ingredient{missing.length !== 1 ? 's' : ''} missing from your pantry</span>
           </div>
-          <button className="missing-banner__btn">Add to list</button>
         </div>
       )}
 
-      {/* Ingredients */}
       <p className="section-label">Ingredients</p>
       <div className="card card--list">
         {recipe.ingredients.map((ing, i) => (
@@ -229,17 +295,11 @@ function ResultState({ recipe, onApprove, onRetry }) {
             <div className="ing-row__right">
               <span className="ing-qty">{ing.quantity} {ing.unit}</span>
               <PantryTag variant={ing.inPantry ? 'in-pantry' : 'missing'} />
-              {!ing.inPantry && (
-                <button className="add-list-btn" aria-label={`Add ${ing.name} to shopping list`}>
-                  + Add
-                </button>
-              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Steps */}
       <p className="section-label">Steps</p>
       <div className="card">
         <div className="step-list">
@@ -252,18 +312,46 @@ function ResultState({ recipe, onApprove, onRetry }) {
         </div>
       </div>
 
-      {/* CTAs */}
       <div className="cta-row">
-        <button className="btn btn--primary" onClick={onApprove}>
-          <CheckIcon aria-hidden="true" /> Approve
+        <button
+          className="btn btn--primary"
+          onClick={onApprove}
+          disabled={approving || retrying}
+        >
+          <CheckIcon aria-hidden="true" /> {approving ? 'Saving…' : 'Approve'}
         </button>
-        <button className="btn btn--secondary" onClick={onRetry}>
-          <RefreshIcon aria-hidden="true" /> Retry
+        <button
+          className="btn btn--secondary"
+          onClick={onRetry}
+          disabled={approving || retrying}
+        >
+          <RefreshIcon aria-hidden="true" /> {retrying ? 'Retrying…' : 'Retry'}
         </button>
       </div>
       <p className="approve-hint">Approving saves this recipe to your collection</p>
     </>
   );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function normalizeRecipe(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    cookTime: r.cook_time_mins,
+    difficulty: r.difficulty,
+    servings: r.servings,
+    cuisine: r.cuisine,
+    mealType: r.meal_type,
+    ingredients: (r.ingredients ?? []).map(ing => ({
+      name: ing.name,
+      quantity: ing.quantity,
+      unit: ing.unit,
+      inPantry: ing.in_pantry ?? false,
+    })),
+    steps: (r.steps ?? []).map(s => (typeof s === 'string' ? s : s.instruction)),
+  };
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────

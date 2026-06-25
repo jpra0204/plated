@@ -200,7 +200,8 @@ svg { display: block; flex-shrink: 0; }
   white-space: nowrap;
 }
 
-.btn:active { transform: scale(0.97); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn svg { width: 16px; height: 16px; }
 
 .btn--primary {
@@ -702,6 +703,75 @@ svg { display: block; flex-shrink: 0; }
   color: var(--color-text-secondary);
   font-size: var(--text-md);
   padding: var(--space-8) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* ── Skeleton loading ────────────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-border) 25%, rgba(255,255,255,0.6) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius-md);
+}
+
+.recipe-card__row--skeleton { pointer-events: none; }
+
+.skeleton--thumb {
+  width: 80px;
+  height: 76px;
+  flex-shrink: 0;
+  border-radius: 0;
+}
+
+.skeleton--text-lg {
+  height: 14px;
+  width: 65%;
+  margin-bottom: 6px;
+}
+
+.skeleton--text-sm {
+  height: 11px;
+  width: 40%;
+}
+
+.skeleton-body {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ── Recipe card note (below CTAs) ──────────────────────────────────────────── */
+
+.recipe-card__note {
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-2);
+}
+
+/* ── Stat card sign-in link ──────────────────────────────────────────────────── */
+
+.stat-card__signin {
+  font-size: var(--text-xs);
+  color: var(--color-primary);
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-top: var(--space-1);
+  text-align: left;
 }
 
 /* ── Icon utilities ──────────────────────────────────────────────────────────── */

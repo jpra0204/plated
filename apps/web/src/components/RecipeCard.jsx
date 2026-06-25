@@ -7,11 +7,12 @@ import PantryTag from './PantryTag.jsx';
  * RecipeCard — collapsed list row that expands into a full detail card.
  *
  * Props:
- *   recipe       object   — recipe data (see fakeData.js for shape)
- *   actions      array    — [{ label, icon: Component, onClick, variant }]
- *                           rendered as CTA buttons in expanded state
- *   defaultExpanded bool  — start expanded (default false)
- *   showMatchPill bool    — show match pill in collapsed row (Home screen)
+ *   recipe         object  — recipe data
+ *   actions        array   — [{ label, icon: Component, onClick, variant, disabled }]
+ *   defaultExpanded bool   — start expanded (default false)
+ *   showMatchPill  bool    — show match pill in collapsed row
+ *   showPantryTags bool    — show "In pantry"/"Missing" tags in expanded view
+ *   note           string  — optional note rendered below CTA buttons
  */
 
 export default function RecipeCard({
@@ -19,11 +20,21 @@ export default function RecipeCard({
   actions = [],
   defaultExpanded = false,
   showMatchPill = true,
+  showPantryTags = true,
+  note,
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   if (expanded) {
-    return <ExpandedCard recipe={recipe} actions={actions} onCollapse={() => setExpanded(false)} />;
+    return (
+      <ExpandedCard
+        recipe={recipe}
+        actions={actions}
+        showPantryTags={showPantryTags}
+        note={note}
+        onCollapse={() => setExpanded(false)}
+      />
+    );
   }
 
   return <CollapsedRow recipe={recipe} onExpand={() => setExpanded(true)} showMatchPill={showMatchPill} />;
@@ -54,7 +65,7 @@ function CollapsedRow({ recipe, onExpand, showMatchPill }) {
 
 // ── Expanded card ─────────────────────────────────────────────────────────────
 
-function ExpandedCard({ recipe, actions, onCollapse }) {
+function ExpandedCard({ recipe, actions, onCollapse, showPantryTags, note }) {
   return (
     <div className="recipe-card--expanded">
       {/* Header */}
@@ -67,25 +78,25 @@ function ExpandedCard({ recipe, actions, onCollapse }) {
         </div>
       </button>
 
-      {/* Match bar */}
-      <MatchBar pct={recipe.matchPct} className="recipe-card__match-bar" />
+      {/* Match bar — only for logged-in users */}
+      {showPantryTags && <MatchBar pct={recipe.matchPct} className="recipe-card__match-bar" />}
 
       {/* Body */}
       <div className="recipe-card__expanded-body">
         {/* Ingredients */}
         <p className="section-label">Ingredients</p>
         <div className="recipe-card__ing-list">
-          {recipe.ingredients.map((ing, i) => (
+          {(recipe.ingredients ?? []).map((ing, i) => (
             <div key={i} className="recipe-card__ing-row">
               <div className="recipe-card__ing-left">
-                {ing.inPantry
+                {showPantryTags && (ing.inPantry
                   ? <CheckCircleIcon className="icon--green" aria-hidden="true" />
-                  : <AlertCircleIcon className="icon--amber" aria-hidden="true" />}
+                  : <AlertCircleIcon className="icon--amber" aria-hidden="true" />)}
                 {ing.name}
               </div>
               <div className="recipe-card__ing-right">
                 <span className="recipe-card__ing-qty">{ing.quantity} {ing.unit}</span>
-                <PantryTag variant={ing.inPantry ? 'in-pantry' : 'missing'} />
+                {showPantryTags && <PantryTag variant={ing.inPantry ? 'in-pantry' : 'missing'} />}
               </div>
             </div>
           ))}
@@ -94,7 +105,7 @@ function ExpandedCard({ recipe, actions, onCollapse }) {
         {/* Steps */}
         <p className="section-label">Steps</p>
         <div className="recipe-card__steps">
-          {recipe.steps.map((step, i) => (
+          {(recipe.steps ?? []).map((step, i) => (
             <div key={i} className="recipe-card__step-row">
               <div className="recipe-card__step-num" aria-hidden="true">{i + 1}</div>
               <p className="recipe-card__step-text">{step}</p>
@@ -105,11 +116,12 @@ function ExpandedCard({ recipe, actions, onCollapse }) {
         {/* CTA buttons */}
         {actions.length > 0 && (
           <div className="recipe-card__cta-row">
-            {actions.map(({ label, icon: Icon, onClick, variant = 'primary' }, i) => (
+            {actions.map(({ label, icon: Icon, onClick, variant = 'primary', disabled = false }, i) => (
               <button
                 key={i}
                 className={`btn btn--${variant} recipe-card__cta-btn`}
-                onClick={onClick}
+                onClick={disabled ? undefined : onClick}
+                disabled={disabled}
               >
                 {Icon && <Icon aria-hidden="true" />}
                 {label}
@@ -117,6 +129,9 @@ function ExpandedCard({ recipe, actions, onCollapse }) {
             ))}
           </div>
         )}
+
+        {/* Optional note below CTAs (e.g. "Sign in to cook and save") */}
+        {note && <p className="recipe-card__note">{note}</p>}
       </div>
     </div>
   );

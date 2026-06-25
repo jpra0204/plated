@@ -13,6 +13,60 @@ import { calculateMatch } from '../services/pantryMatch.js';
 
 const router = Router();
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+export function getMealTypeForTime(hour = new Date().getHours()) {
+  if (hour < 11) return 'breakfast';
+  if (hour < 15) return 'lunch';
+  if (hour < 21) return 'dinner';
+  return 'snack';
+}
+
+// Fetch ingredients + steps for a set of recipe IDs and attach them to the
+// recipe objects. Mutates the passed-in array in-place and returns it.
+async function attachIngredientsAndSteps(recipes, { withPantrySet } = {}) {
+  if (recipes.length === 0) return recipes;
+
+  const ids = recipes.map(r => r.id);
+  const [ingredients, steps] = await Promise.all([
+    db('recipe_ingredients')
+      .whereIn('recipe_id', ids)
+      .orderBy('sort_order')
+      .select('recipe_id', 'name', 'quantity', 'unit'),
+    db('recipe_steps')
+      .whereIn('recipe_id', ids)
+      .orderBy('step_number')
+      .select('recipe_id', 'step_number', 'instruction'),
+  ]);
+
+  const ingMap = {};
+  for (const ing of ingredients) {
+    (ingMap[ing.recipe_id] ??= []).push({
+      name: ing.name,
+      quantity: ing.quantity,
+      unit: ing.unit,
+      ...(withPantrySet
+        ? { in_pantry: withPantrySet.has(ing.name.toLowerCase().trim()) }
+        : {}),
+    });
+  }
+
+  const stepMap = {};
+  for (const step of steps) {
+    (stepMap[step.recipe_id] ??= []).push({
+      step_number: step.step_number,
+      instruction: step.instruction,
+    });
+  }
+
+  for (const r of recipes) {
+    r.ingredients = ingMap[r.id] ?? [];
+    r.steps = stepMap[r.id] ?? [];
+  }
+
+  return recipes;
+}
+
 // ── GET /trending — public ────────────────────────────────────────────────────
 
 router.get('/trending', async (_req, res, next) => {
@@ -22,6 +76,8 @@ router.get('/trending', async (_req, res, next) => {
       .orderByRaw('RANDOM()')
       .limit(5)
       .select('id', 'name', 'source', 'meal_type', 'cuisine', 'difficulty', 'cook_time_mins', 'servings', 'created_at');
+
+    await attachIngredientsAndSteps(recipes);
 
     return res.json({ recipes });
   } catch (err) {
@@ -50,22 +106,17 @@ router.get('/suggestions', async (req, res, next) => {
 
     if (recipes.length === 0) return res.json({ recipes: [] });
 
-    const recipeIds = recipes.map(r => r.id);
-    const allIngredients = await db('recipe_ingredients')
-      .whereIn('recipe_id', recipeIds)
-      .select('recipe_id', 'name');
+    const pantrySet = new Set(pantryItems.map(i => i.name.toLowerCase().trim()));
 
-    const ingByRecipe = {};
-    for (const ing of allIngredients) {
-      (ingByRecipe[ing.recipe_id] ??= []).push(ing);
-    }
+    // Attach ingredients (with in_pantry flag) and steps before ranking
+    await attachIngredientsAndSteps(recipes, { withPantrySet: pantrySet });
 
     const timeOfDayMealType = getMealTypeForTime();
 
     const ranked = recipes
       .map(recipe => ({
         ...recipe,
-        match_pct: calculateMatch(ingByRecipe[recipe.id] ?? [], pantryItems),
+        match_pct: calculateMatch(recipe.ingredients, pantryItems),
       }))
       .sort((a, b) => {
         if (b.match_pct !== a.match_pct) return b.match_pct - a.match_pct;
@@ -74,7 +125,6 @@ router.get('/suggestions', async (req, res, next) => {
         return aScore - bScore;
       });
 
-    // Attach preferences so the frontend can surface dietary badges
     return res.json({ recipes: ranked, preferences: preferences ?? null });
   } catch (err) {
     next(err);
@@ -90,7 +140,6 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: { message: 'Recipe not found.' } });
     }
 
-    // Non-public recipes are only accessible to users who have them saved.
     if (!recipe.is_public) {
       const user = await db('users').where({ firebase_uid: req.user.uid }).first();
       if (!user) {
@@ -121,14 +170,5 @@ router.get('/:id', async (req, res, next) => {
     next(err);
   }
 });
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-export function getMealTypeForTime(hour = new Date().getHours()) {
-  if (hour < 11) return 'breakfast';
-  if (hour < 15) return 'lunch';
-  if (hour < 21) return 'dinner';
-  return 'snack';
-}
 
 export default router;

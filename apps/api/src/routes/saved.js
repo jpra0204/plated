@@ -50,19 +50,33 @@ router.get('/', async (req, res, next) => {
 
     if (saved.length === 0) return res.json({ recipes: [] });
 
-    const [pantryItems, allIngredients] = await Promise.all([
+    const ids = saved.map(r => r.id);
+    const [pantryItems, allIngredients, allSteps] = await Promise.all([
       db('pantry_items').where({ user_id: user.id }).whereNull('deleted_at').select('name'),
-      db('recipe_ingredients').whereIn('recipe_id', saved.map(r => r.id)).select('recipe_id', 'name'),
+      db('recipe_ingredients').whereIn('recipe_id', ids).orderBy('sort_order').select('recipe_id', 'name', 'quantity', 'unit'),
+      db('recipe_steps').whereIn('recipe_id', ids).orderBy('step_number').select('recipe_id', 'step_number', 'instruction'),
     ]);
+
+    const pantrySet = new Set(pantryItems.map(i => i.name.toLowerCase().trim()));
 
     const ingByRecipe = {};
     for (const ing of allIngredients) {
-      (ingByRecipe[ing.recipe_id] ??= []).push(ing);
+      (ingByRecipe[ing.recipe_id] ??= []).push({
+        name: ing.name, quantity: ing.quantity, unit: ing.unit,
+        in_pantry: pantrySet.has(ing.name.toLowerCase().trim()),
+      });
+    }
+
+    const stepByRecipe = {};
+    for (const s of allSteps) {
+      (stepByRecipe[s.recipe_id] ??= []).push({ step_number: s.step_number, instruction: s.instruction });
     }
 
     const recipes = saved.map(r => ({
       ...r,
       match_pct: calculateMatch(ingByRecipe[r.id] ?? [], pantryItems),
+      ingredients: ingByRecipe[r.id] ?? [],
+      steps: stepByRecipe[r.id] ?? [],
     }));
 
     return res.json({ recipes });

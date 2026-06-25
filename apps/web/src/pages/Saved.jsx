@@ -1,56 +1,101 @@
- 
 import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MatchBar from '../components/MatchBar.jsx';
 import PantryTag from '../components/PantryTag.jsx';
 import Toast from '../components/Toast.jsx';
-import { FAKE_SAVED } from '../data/fakeData.js';
+import { get, post, del } from '../lib/api.js';
+import { queryKeys } from '../lib/queryKeys.js';
 
 /**
- * Saved — list + expanded card, from saved_and_profile_v2 wireframe.
+ * Saved — list + expanded card.
  *
- * States:
- *   'list'     → collapsed recipe cards with match bar
- *   expandedId → one recipe expanded inline (click to expand/collapse)
+ * Uses GET /saved (returns match_pct, ingredients+in_pantry, steps).
+ * Cook: POST /cook with invalidation.
+ * Delete: DELETE /saved/:savedId with inline confirmation.
  */
 
 const FILTERS = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Chef picks'];
 
 export default function Saved() {
+  const queryClient = useQueryClient();
   const [search, setSearch]         = useState('');
   const [activeFilter, setFilter]   = useState('All');
   const [expandedId, setExpandedId] = useState(null);
-  const [recipes, setRecipes]       = useState(FAKE_SAVED);
-  const [toast, setToast]           = useState({ visible: false, msg: '' });
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [toast, setToast]           = useState({ visible: false, message: '' });
 
-  function showToast(msg) { setToast({ visible: true, msg }); }
+  const showToast = (message) => setToast({ visible: true, message });
+
+  // ── Saved list query ──────────────────────────────────────────────────────
+  const {
+    data: savedData,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.saved.list(),
+    queryFn: () => get('/api/v1/saved'),
+    staleTime: 30_000,
+  });
+
+  const rawRecipes = savedData?.recipes ?? [];
+  const recipes = rawRecipes.map(normalizeRecipe);
 
   const filtered = useMemo(() => {
     let list = recipes;
     if (search) list = list.filter(r => r.name.toLowerCase().includes(search.toLowerCase()));
     if (activeFilter === 'Chef picks') list = list.filter(r => r.isChefPick);
-    else if (activeFilter !== 'All') list = list.filter(r => r.mealType === activeFilter);
+    else if (activeFilter !== 'All') {
+      const target = activeFilter.toLowerCase();
+      list = list.filter(r => r.mealType?.toLowerCase() === target);
+    }
     return list;
   }, [recipes, search, activeFilter]);
 
-  function handleCook(recipe) {
-    showToast(`Cooked! Removed ${recipe.ingredients.filter(i => i.inPantry).length} ingredients from your pantry.`);
-    setExpandedId(null);
-  }
+  // ── Cook mutation ─────────────────────────────────────────────────────────
+  const cookMutation = useMutation({
+    mutationFn: (recipeId) => post('/api/v1/cook', { recipeId }),
+    onSuccess: (data) => {
+      const n = data.removedItems?.length ?? 0;
+      showToast(n > 0
+        ? `Cooked! Removed ${n} ingredient${n !== 1 ? 's' : ''} from your pantry.`
+        : 'Cooked! No pantry items to remove.');
+      setExpandedId(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saved.all() });
+    },
+    onError: () => showToast('Something went wrong. Please try again.'),
+  });
 
-  function handleDelete(id) {
-    setRecipes(rs => rs.filter(r => r.id !== id));
-    setExpandedId(null);
-    showToast('Recipe removed from saved.');
-  }
+  // ── Delete mutation ───────────────────────────────────────────────────────
+  const deleteMutation = useMutation({
+    mutationFn: (savedId) => del(`/api/v1/saved/${savedId}`),
+    onSuccess: () => {
+      setExpandedId(null);
+      setConfirmDeleteId(null);
+      showToast('Recipe removed from saved.');
+      queryClient.invalidateQueries({ queryKey: queryKeys.saved.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+    },
+    onError: () => showToast('Could not delete recipe. Please try again.'),
+  });
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Saved recipes</h1>
-        <span className="page-count">{recipes.length} recipes</span>
+        <span className="page-count">{isLoading ? '—' : rawRecipes.length} recipes</span>
       </div>
 
-      <Toast message={toast.msg} visible={toast.visible} onDismiss={() => setToast(t => ({ ...t, visible: false }))} />
+      <Toast
+        message={toast.message}
+        visible={toast.visible}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
 
       {/* Search */}
       <div className="search-bar">
@@ -62,6 +107,9 @@ export default function Saved() {
           onChange={e => setSearch(e.target.value)}
           aria-label="Search saved recipes"
         />
+        {search && (
+          <button className="search-bar__clear" onClick={() => setSearch('')} aria-label="Clear">×</button>
+        )}
       </div>
 
       {/* Filter chips */}
@@ -78,26 +126,40 @@ export default function Saved() {
         ))}
       </div>
 
-      {/* Recipe list */}
-      {filtered.length === 0 && (
-        <p className="empty-state">No saved recipes match your filters.</p>
-      )}
-
-      {filtered.map(recipe =>
-        expandedId === recipe.id ? (
-          <ExpandedRecipe
-            key={recipe.id}
-            recipe={recipe}
-            onCollapse={() => setExpandedId(null)}
-            onCook={() => handleCook(recipe)}
-            onDelete={() => handleDelete(recipe.id)}
-          />
-        ) : (
-          <CollapsedRecipe
-            key={recipe.id}
-            recipe={recipe}
-            onExpand={() => setExpandedId(recipe.id)}
-          />
+      {/* Content */}
+      {isLoading ? (
+        <div className="empty-state"><p>Loading saved recipes…</p></div>
+      ) : isError ? (
+        <div className="empty-state">
+          <p>Could not load saved recipes.</p>
+          <button className="btn btn--secondary" onClick={() => refetch()}>Try again</button>
+        </div>
+      ) : rawRecipes.length === 0 ? (
+        <div className="empty-state"><p>No saved recipes yet. Cook something or approve a Chef pick!</p></div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state"><p>No saved recipes match your filters.</p></div>
+      ) : (
+        filtered.map(recipe =>
+          expandedId === recipe.id ? (
+            <ExpandedRecipe
+              key={recipe.id}
+              recipe={recipe}
+              onCollapse={() => setExpandedId(null)}
+              onCook={() => cookMutation.mutate(recipe.id)}
+              onDelete={() => setConfirmDeleteId(recipe.savedId)}
+              confirmingDelete={confirmDeleteId === recipe.savedId}
+              onConfirmDelete={() => deleteMutation.mutate(recipe.savedId)}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              cooking={cookMutation.isPending}
+              deleting={deleteMutation.isPending}
+            />
+          ) : (
+            <CollapsedRecipe
+              key={recipe.id}
+              recipe={recipe}
+              onExpand={() => { setExpandedId(recipe.id); setConfirmDeleteId(null); }}
+            />
+          )
         )
       )}
 
@@ -110,7 +172,11 @@ export default function Saved() {
 
 function CollapsedRecipe({ recipe, onExpand }) {
   return (
-    <div className="recipe-card" onClick={onExpand} role="button" tabIndex={0}
+    <div
+      className="recipe-card"
+      onClick={onExpand}
+      role="button"
+      tabIndex={0}
       onKeyDown={e => e.key === 'Enter' && onExpand()}
       aria-label={`Expand ${recipe.name}`}
     >
@@ -139,7 +205,17 @@ function CollapsedRecipe({ recipe, onExpand }) {
 
 // ── Expanded recipe card ──────────────────────────────────────────────────────
 
-function ExpandedRecipe({ recipe, onCollapse, onCook, onDelete }) {
+function ExpandedRecipe({
+  recipe,
+  onCollapse,
+  onCook,
+  onDelete,
+  confirmingDelete,
+  onConfirmDelete,
+  onCancelDelete,
+  cooking,
+  deleting,
+}) {
   return (
     <div className="expanded-recipe">
       <button className="expanded-recipe__header" onClick={onCollapse} aria-label="Collapse recipe">
@@ -189,17 +265,65 @@ function ExpandedRecipe({ recipe, onCollapse, onCook, onDelete }) {
           ))}
         </div>
 
-        <div className="expanded-cta-row">
-          <button className="btn btn--primary btn--flex2" onClick={onCook}>
-            <ChefHatIcon aria-hidden="true" /> Cook this
-          </button>
-          <button className="btn btn--danger" onClick={onDelete}>
-            <TrashIcon aria-hidden="true" /> Delete
-          </button>
-        </div>
+        {confirmingDelete ? (
+          <div className="delete-confirm">
+            <p className="delete-confirm__prompt">Remove this recipe?</p>
+            <div className="expanded-cta-row">
+              <button
+                className="btn btn--secondary"
+                onClick={onCancelDelete}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn--danger btn--flex2"
+                onClick={onConfirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Removing…' : 'Yes, remove'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="expanded-cta-row">
+            <button
+              className="btn btn--primary btn--flex2"
+              onClick={onCook}
+              disabled={cooking}
+            >
+              <ChefHatIcon aria-hidden="true" /> {cooking ? 'Cooking…' : 'Cook this'}
+            </button>
+            <button className="btn btn--danger" onClick={onDelete}>
+              <TrashIcon aria-hidden="true" /> Delete
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function normalizeRecipe(r) {
+  return {
+    savedId:    r.saved_id,
+    id:         r.id,
+    name:       r.name,
+    cookTime:   r.cook_time_mins,
+    difficulty: r.difficulty,
+    servings:   r.servings,
+    cuisine:    r.cuisine,
+    mealType:   r.meal_type,
+    matchPct:   r.match_pct ?? 0,
+    isChefPick: r.is_chef_pick ?? false,
+    ingredients: (r.ingredients ?? []).map(ing => ({
+      name: ing.name, quantity: ing.quantity, unit: ing.unit,
+      inPantry: ing.in_pantry ?? false,
+    })),
+    steps: (r.steps ?? []).map(s => (typeof s === 'string' ? s : s.instruction)),
+  };
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────

@@ -677,6 +677,12 @@ svg { display: block; flex-shrink: 0; }
 
 .pref-row--danger .pref-row__left { color: var(--color-primary); }
 
+.pref-row--btn {
+  width: 100%;
+  text-align: left;
+}
+.pref-row--btn:hover { background: color-mix(in srgb, var(--color-border) 50%, transparent); }
+
 .pref-row__arrow { width: 16px; height: 16px; color: var(--color-text-disabled); }
 
 /* ── Info note ───────────────────────────────────────────────────────────────── */
@@ -1204,6 +1210,18 @@ svg { display: block; flex-shrink: 0; }
   display: flex;
   gap: var(--space-3);
   margin-top: var(--space-4);
+}
+
+.delete-confirm {
+  margin-top: var(--space-4);
+}
+
+.delete-confirm__prompt {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-error);
+  margin-bottom: var(--space-2);
+  text-align: center;
 }
 
 /* ── Ingredient rows ─────────────────────────────────────────────────────────── */

@@ -89,8 +89,8 @@
 |---|---|---|---|---|
 | 9.1 | YOU | Install + authenticate gcloud CLI | done | Confirmed by user 2026-06-26 |
 | 9.2 | YOU | Create Cloud SQL instance | done | plated-db (POSTGRES_16, db-f1-micro, ENTERPRISE, northamerica-northeast1); plated_prod DB + plated user created 2026-06-26 |
-| 9.3 | YOU | Create Artifact Registry repository | blocked-on-user | Run gcloud artifacts repositories create — see Blocked section |
-| 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | pending | |
+| 9.3 | YOU | Create Artifact Registry repository | done | plated repo created in northamerica-northeast1 2026-06-26 |
+| 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | done | api: Node 20 Alpine, non-root user, port 3001; web: multi-stage Node 20 build + nginx:alpine with SPA fallback; .dockerignore at root; Vite build verified 2026-06-26 |
 | 9.5 | YOU | Store secrets in Secret Manager | pending | |
 | 9.6 | CLAUDE CODE | GitHub Actions CI/CD workflows | pending | ci.yml scaffold exists; needs full implementation |
 | 9.7 | YOU | First production deploy | pending | |
@@ -107,10 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- **9.3 [YOU]** — Create Artifact Registry Docker repository (same region as Cloud SQL: `northamerica-northeast1`):
-  ```bash
-  gcloud artifacts repositories create plated \
-    --repository-format=docker \
-    --location=northamerica-northeast1
-  ```
-  Once done, run `/plated-next` and I'll write the Dockerfiles (9.4).
+- None currently — next step is 9.5 (YOU: store secrets in Secret Manager).

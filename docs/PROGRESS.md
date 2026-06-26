@@ -88,8 +88,8 @@
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
 | 9.1 | YOU | Install + authenticate gcloud CLI | done | Confirmed by user 2026-06-26 |
-| 9.2 | YOU | Create Cloud SQL instance | blocked-on-user | Run gcloud commands to create instance, DB, and user — see Blocked section |
-| 9.3 | YOU | Create Artifact Registry repository | pending | |
+| 9.2 | YOU | Create Cloud SQL instance | done | plated-db (POSTGRES_16, db-f1-micro, ENTERPRISE, northamerica-northeast1); plated_prod DB + plated user created 2026-06-26 |
+| 9.3 | YOU | Create Artifact Registry repository | blocked-on-user | Run gcloud artifacts repositories create — see Blocked section |
 | 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | pending | |
 | 9.5 | YOU | Store secrets in Secret Manager | pending | |
 | 9.6 | CLAUDE CODE | GitHub Actions CI/CD workflows | pending | ci.yml scaffold exists; needs full implementation |
@@ -107,15 +107,10 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- **9.2 [YOU]** — Create Cloud SQL instance. Run these three commands (pick a region close to you, e.g. `us-central1` or `europe-west1`; generate a strong password and save it in your password manager):
+- **9.3 [YOU]** — Create Artifact Registry Docker repository (same region as Cloud SQL: `northamerica-northeast1`):
   ```bash
-  gcloud sql instances create plated-db \
-    --database-version=POSTGRES_16 \
-    --tier=db-f1-micro \
-    --region=<your-region>
-
-  gcloud sql databases create plated_prod --instance=plated-db
-
-  gcloud sql users create plated --instance=plated-db --password=<strong-password>
+  gcloud artifacts repositories create plated \
+    --repository-format=docker \
+    --location=northamerica-northeast1
   ```
-  Once done, run `/plated-next` and I'll move to 9.3 (Artifact Registry).
+  Once done, run `/plated-next` and I'll write the Dockerfiles (9.4).

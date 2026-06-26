@@ -1,0 +1,123 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# GitHub secrets required in repo Settings → Secrets and variables → Actions:
+#   GCP_PROJECT_ID   — GCP project ID (e.g. plated-dev-9e04c)
+#   GCP_SA_KEY       — JSON key for a service account with these roles:
+#                        Cloud Run Admin
+#                        Artifact Registry Writer
+#                        Service Account User
+#   GCP_REGION       — Cloud Run / Artifact Registry region (e.g. northamerica-northeast1)
+#   VITE_FIREBASE_API_KEY     — Firebase web API key (baked into the web bundle)
+#   VITE_FIREBASE_AUTH_DOMAIN — Firebase auth domain
+#   VITE_FIREBASE_PROJECT_ID  — Firebase project ID
+#
+# Cloud Run service account (default Compute SA) also needs:
+#   Secret Manager Secret Accessor — so Cloud Run can read the runtime secrets
+# Grant it with:
+#   gcloud projects add-iam-policy-binding $PROJECT_ID \
+#     --member="serviceAccount:$(gcloud projects describe $PROJECT_ID \
+#       --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+#     --role="roles/secretmanager.secretAccessor"
+
+env:
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGISTRY: ${{ secrets.GCP_REGION }}-docker.pkg.dev
+  IMAGE_API: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/plated/api
+  IMAGE_WEB: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/plated/web
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      # ── Build & push API image ─────────────────────────────────────────────
+
+      - name: Build API image
+        run: |
+          docker build \
+            -f apps/api/Dockerfile \
+            -t ${{ env.IMAGE_API }}:${{ github.sha }} \
+            -t ${{ env.IMAGE_API }}:latest \
+            .
+
+      - name: Push API image
+        run: |
+          docker push ${{ env.IMAGE_API }}:${{ github.sha }}
+          docker push ${{ env.IMAGE_API }}:latest
+
+      # ── Deploy API to Cloud Run ────────────────────────────────────────────
+
+      - name: Deploy API to Cloud Run
+        run: |
+          gcloud run deploy plated-api \
+            --image="${{ env.IMAGE_API }}:${{ github.sha }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=3001 \
+            --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \
+            --set-secrets="DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest" \
+            --set-env-vars="NODE_ENV=production,PORT=3001" \
+            --quiet
+
+      - name: Get API URL
+        id: api-url
+        run: |
+          URL=$(gcloud run services describe plated-api \
+            --region="${{ env.GCP_REGION }}" \
+            --format='value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      # ── Build & push web image (needs API URL baked in) ───────────────────
+
+      - name: Build web image
+        run: |
+          docker build \
+            -f apps/web/Dockerfile \
+            --build-arg VITE_FIREBASE_API_KEY="${{ secrets.VITE_FIREBASE_API_KEY }}" \
+            --build-arg VITE_FIREBASE_AUTH_DOMAIN="${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" \
+            --build-arg VITE_FIREBASE_PROJECT_ID="${{ secrets.VITE_FIREBASE_PROJECT_ID }}" \
+            --build-arg VITE_API_URL="${{ steps.api-url.outputs.url }}" \
+            -t ${{ env.IMAGE_WEB }}:${{ github.sha }} \
+            -t ${{ env.IMAGE_WEB }}:latest \
+            .
+
+      - name: Push web image
+        run: |
+          docker push ${{ env.IMAGE_WEB }}:${{ github.sha }}
+          docker push ${{ env.IMAGE_WEB }}:latest
+
+      # ── Deploy web to Cloud Run ────────────────────────────────────────────
+
+      - name: Deploy web to Cloud Run
+        run: |
+          gcloud run deploy plated-web \
+            --image="${{ env.IMAGE_WEB }}:${{ github.sha }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=80 \
+            --quiet
+
+      - name: Print service URLs
+        run: |
+          echo "API: $(gcloud run services describe plated-api --region=${{ env.GCP_REGION }} --format='value(status.url)')"
+          echo "Web: $(gcloud run services describe plated-web --region=${{ env.GCP_REGION }} --format='value(status.url)')"

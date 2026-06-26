@@ -91,8 +91,8 @@
 | 9.2 | YOU | Create Cloud SQL instance | done | plated-db (POSTGRES_16, db-f1-micro, ENTERPRISE, northamerica-northeast1); plated_prod DB + plated user created 2026-06-26 |
 | 9.3 | YOU | Create Artifact Registry repository | done | plated repo created in northamerica-northeast1 2026-06-26 |
 | 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | done | api: Node 20 Alpine, non-root user, port 3001; web: multi-stage Node 20 build + nginx:alpine with SPA fallback; .dockerignore at root; Vite build verified 2026-06-26 |
-| 9.5 | YOU | Store secrets in Secret Manager | pending | |
-| 9.6 | CLAUDE CODE | GitHub Actions CI/CD workflows | pending | ci.yml scaffold exists; needs full implementation |
+| 9.5 | YOU | Store secrets in Secret Manager | done | DATABASE_URL, GEMINI_API_KEY, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY stored 2026-06-26 |
+| 9.6 | CLAUDE CODE | GitHub Actions CI/CD workflows | done | ci.yml: lint+migrate+test+web build smoke check; deploy.yml: auth→build api→push→deploy→capture URL→build web with API URL→push→deploy; 7 GitHub secrets documented 2026-06-26 |
 | 9.7 | YOU | First production deploy | pending | |
 | 9.8 | YOU | Run migrations against Cloud SQL | pending | |
 
@@ -107,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- None currently — next step is 9.5 (YOU: store secrets in Secret Manager).
+- **9.7 [YOU]** — Add GitHub secrets then push to main to trigger first deploy. See step 9.6 notes for the 7 secrets needed. Once the deploy workflow completes, run `/plated-next`.

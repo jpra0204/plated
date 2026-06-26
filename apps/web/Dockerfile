@@ -8,10 +8,11 @@ RUN npm install
 
 COPY apps/web/ ./
 
-# Firebase config is baked into the bundle at build time
+# Firebase config and API URL are baked into the bundle at build time
 ARG VITE_FIREBASE_API_KEY
 ARG VITE_FIREBASE_AUTH_DOMAIN
 ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_API_URL
 
 RUN npm run build
 

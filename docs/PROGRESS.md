@@ -87,7 +87,7 @@
 
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
-| 9.1 | YOU | Install + authenticate gcloud CLI | pending | |
+| 9.1 | YOU | Install + authenticate gcloud CLI | blocked-on-user | Install gcloud SDK and run: gcloud auth login && gcloud config set project <your-project-id> |
 | 9.2 | YOU | Create Cloud SQL instance | pending | |
 | 9.3 | YOU | Create Artifact Registry repository | pending | |
 | 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | pending | |
@@ -107,4 +107,9 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- None currently — next step is 9.1 (YOU: install + authenticate gcloud CLI).
+- **9.1 [YOU]** — Install gcloud CLI (https://cloud.google.com/sdk/docs/install), then run:
+  ```
+  gcloud auth login
+  gcloud config set project <your-GCP-project-id>
+  ```
+  Once done, run `/plated-next` and I'll continue with 9.2 (Cloud SQL instance).

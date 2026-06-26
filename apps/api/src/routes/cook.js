@@ -8,8 +8,11 @@
  */
 
 import { Router } from 'express';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
+
+const tracer = trace.getTracer('plated-api');
 
 const router = Router();
 router.use(verifyFirebaseToken);
@@ -26,17 +29,20 @@ async function getUser(req, res) {
 // ── POST / ────────────────────────────────────────────────────────────────────
 
 router.post('/', async (req, res, next) => {
+  return tracer.startActiveSpan('cook.execute', async (span) => {
   try {
     const user = await getUser(req, res);
-    if (!user) return;
+    if (!user) { span.end(); return; }
 
     const { recipeId } = req.body;
     if (!recipeId) {
+      span.end();
       return res.status(400).json({ error: { message: 'recipeId is required.' } });
     }
 
     const recipe = await db('recipes').where({ id: recipeId }).first();
     if (!recipe) {
+      span.end();
       return res.status(404).json({ error: { message: 'Recipe not found.' } });
     }
 
@@ -73,10 +79,17 @@ router.post('/', async (req, res, next) => {
       };
     });
 
+    span.setAttribute('cook.ingredients_removed', removedItems.length);
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
     return res.json({ cookedCount, removedItems });
   } catch (err) {
+    span.recordException(err);
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    span.end();
     next(err);
   }
+  }); // tracer.startActiveSpan
 });
 
 export default router;

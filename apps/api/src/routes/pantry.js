@@ -10,9 +10,12 @@
  */
 
 import { Router } from 'express';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
 import { parseTranscript } from '../services/voice.js';
+
+const tracer = trace.getTracer('plated-api');
 
 const router = Router();
 router.use(verifyFirebaseToken);
@@ -50,14 +53,18 @@ router.get('/', async (req, res, next) => {
 // Must be declared before /:id to avoid route conflict.
 
 router.post('/voice', async (req, res, next) => {
+  return tracer.startActiveSpan('pantry.voice_parse', async (span) => {
   try {
     const { transcript } = req.body;
     if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
+      span.end();
       return res.status(400).json({ error: { message: 'transcript is required.' } });
     }
 
+    span.setAttribute('voice.transcript_length', transcript.trim().length);
+
     const user = await getUser(req, res);
-    if (!user) return;
+    if (!user) { span.end(); return; }
 
     const catalogue = await db('ingredients').select('id', 'name', 'name_normalized', 'category');
     const dictionary = catalogue.map(i => ({ id: i.id, name: i.name_normalized }));
@@ -76,10 +83,17 @@ router.post('/voice', async (req, res, next) => {
       };
     });
 
+    span.setAttribute('voice.items_parsed', items.length);
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
     return res.json({ items });
   } catch (err) {
+    span.recordException(err);
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    span.end();
     next(err);
   }
+  }); // tracer.startActiveSpan
 });
 
 // ── POST /bulk ────────────────────────────────────────────────────────────────

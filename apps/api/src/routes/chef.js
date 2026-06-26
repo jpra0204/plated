@@ -6,9 +6,12 @@
  */
 
 import { Router } from 'express';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
 import { buildChefPrompt } from '../services/gemini.js';
+
+const tracer = trace.getTracer('plated-api');
 
 const router = Router();
 router.use(verifyFirebaseToken);
@@ -27,13 +30,15 @@ async function getUser(req, res) {
 // ── POST /generate ────────────────────────────────────────────────────────────
 
 router.post('/generate', async (req, res, next) => {
+  return tracer.startActiveSpan('chef.generate', async (span) => {
   try {
     const user = await getUser(req, res);
-    if (!user) return;
+    if (!user) { span.end(); return; }
 
     const { filters = {}, retryOf = null } = req.body;
 
     if (!filters.mealType || !filters.cookTime || !filters.difficulty || filters.servings == null) {
+      span.end();
       return res.status(400).json({
         error: { message: 'filters.mealType, filters.cookTime, filters.difficulty, and filters.servings are required.' },
       });
@@ -48,6 +53,12 @@ router.post('/generate', async (req, res, next) => {
         .select('recipe_id'),
     ]);
 
+    span.setAttributes({
+      'user.id':         String(user.id),
+      'chef.meal_type':  filters.mealType ?? '',
+      'chef.pantry_size': pantryItems.length,
+    });
+
     const previousRecipeIds = previousGenerations.map(g => g.recipe_id);
 
     // Call Gemini.
@@ -59,6 +70,8 @@ router.post('/generate', async (req, res, next) => {
     });
 
     if (!generated || !generated.name) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'AI generation failed' });
+      span.end();
       return res.status(502).json({ error: { message: 'AI generation failed — invalid response.' } });
     }
 
@@ -121,13 +134,19 @@ router.post('/generate', async (req, res, next) => {
       in_pantry: pantrySet.has(ing.name.toLowerCase().trim()),
     }));
 
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
     return res.status(201).json({
       generationId: generation.id,
       recipe: { ...recipe, ingredients: ingredientsWithPantry, steps },
     });
   } catch (err) {
+    span.recordException(err);
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    span.end();
     next(err);
   }
+  }); // tracer.startActiveSpan
 });
 
 // ── POST /:generationId/approve ───────────────────────────────────────────────

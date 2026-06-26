@@ -81,7 +81,7 @@
 
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
-| 8.1 | CLAUDE CODE | Custom OTel spans (chef.generate, pantry.voice_parse, cook.execute) | pending | telemetry.js skeleton in apps/api/src/ |
+| 8.1 | CLAUDE CODE | Custom OTel spans (chef.generate, pantry.voice_parse, cook.execute) | done | chef.generate (user.id, meal_type, pantry_size), pantry.voice_parse (transcript_length, items_parsed), cook.execute (ingredients_removed); span.recordException on error; 118 tests still passing 2026-06-26 |
 
 ## Phase 9 — GCP deployment
 
@@ -107,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- None currently — run `/plated-next` to continue with step 8.1 (OTel custom spans).
+- None currently — next step is 9.1 (YOU: install + authenticate gcloud CLI).

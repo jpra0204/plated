@@ -74,7 +74,7 @@ jobs:
             --port=3001 \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \
             --set-secrets="DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest" \
-            --set-env-vars="NODE_ENV=production,PORT=3001" \
+            --set-env-vars="NODE_ENV=production" \
             --quiet
 
       - name: Print API URL

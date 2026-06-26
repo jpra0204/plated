@@ -93,8 +93,8 @@
 | 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | done | api: Node 20 Alpine, non-root user, port 3001; web: multi-stage Node 20 build + nginx:alpine with SPA fallback; .dockerignore at root; Vite build verified 2026-06-26 |
 | 9.5 | YOU | Store secrets in Secret Manager | done | DATABASE_URL, GEMINI_API_KEY, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY stored 2026-06-26 |
 | 9.6 | CLAUDE CODE | GitHub Actions CI/CD workflows | done | ci.yml: lint+migrate+test+web build smoke check; deploy.yml: auth→build api→push→deploy→capture URL→build web with API URL→push→deploy; 7 GitHub secrets documented 2026-06-26 |
-| 9.7 | YOU | First production deploy | pending | |
-| 9.8 | YOU | Run migrations against Cloud SQL | pending | |
+| 9.7 | YOU | First production deploy | done | Vercel (web) + Cloud Run (API) both live 2026-06-26 |
+| 9.8 | YOU | Run migrations against Cloud SQL | blocked-on-user | Run migrations via Cloud SQL Auth Proxy — see Blocked section |
 
 ## Phase 10 — Scanning (deferred)
 
@@ -107,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- **9.7 [YOU]** — Add GitHub secrets then push to main to trigger first deploy. See step 9.6 notes for the 7 secrets needed. Once the deploy workflow completes, run `/plated-next`.
+- **9.8 [YOU]** — Run migrations against Cloud SQL prod DB. See instructions below.

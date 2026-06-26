@@ -94,7 +94,7 @@
 | 9.5 | YOU | Store secrets in Secret Manager | done | DATABASE_URL, GEMINI_API_KEY, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY stored 2026-06-26 |
 | 9.6 | CLAUDE CODE | GitHub Actions CI/CD workflows | done | ci.yml: lint+migrate+test+web build smoke check; deploy.yml: auth→build api→push→deploy→capture URL→build web with API URL→push→deploy; 7 GitHub secrets documented 2026-06-26 |
 | 9.7 | YOU | First production deploy | done | Vercel (web) + Cloud Run (API) both live 2026-06-26 |
-| 9.8 | YOU | Run migrations against Cloud SQL | blocked-on-user | Run migrations via Cloud SQL Auth Proxy — see Blocked section |
+| 9.8 | YOU | Run migrations against Cloud SQL | done | Migrations + seed run against plated_prod via Cloud SQL Auth Proxy 2026-06-26 |
 
 ## Phase 10 — Scanning (deferred)
 
@@ -107,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- **9.8 [YOU]** — Run migrations against Cloud SQL prod DB. See instructions below.
+- None — all phases complete. Phase 10 (scanning) is deferred pending product decision.

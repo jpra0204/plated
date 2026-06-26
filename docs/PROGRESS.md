@@ -87,8 +87,8 @@
 
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
-| 9.1 | YOU | Install + authenticate gcloud CLI | blocked-on-user | Install gcloud SDK and run: gcloud auth login && gcloud config set project <your-project-id> |
-| 9.2 | YOU | Create Cloud SQL instance | pending | |
+| 9.1 | YOU | Install + authenticate gcloud CLI | done | Confirmed by user 2026-06-26 |
+| 9.2 | YOU | Create Cloud SQL instance | blocked-on-user | Run gcloud commands to create instance, DB, and user — see Blocked section |
 | 9.3 | YOU | Create Artifact Registry repository | pending | |
 | 9.4 | CLAUDE CODE | Write Dockerfiles (api + web) | pending | |
 | 9.5 | YOU | Store secrets in Secret Manager | pending | |
@@ -107,9 +107,15 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- **9.1 [YOU]** — Install gcloud CLI (https://cloud.google.com/sdk/docs/install), then run:
+- **9.2 [YOU]** — Create Cloud SQL instance. Run these three commands (pick a region close to you, e.g. `us-central1` or `europe-west1`; generate a strong password and save it in your password manager):
+  ```bash
+  gcloud sql instances create plated-db \
+    --database-version=POSTGRES_16 \
+    --tier=db-f1-micro \
+    --region=<your-region>
+
+  gcloud sql databases create plated_prod --instance=plated-db
+
+  gcloud sql users create plated --instance=plated-db --password=<strong-password>
   ```
-  gcloud auth login
-  gcloud config set project <your-GCP-project-id>
-  ```
-  Once done, run `/plated-next` and I'll continue with 9.2 (Cloud SQL instance).
+  Once done, run `/plated-next` and I'll move to 9.3 (Artifact Registry).

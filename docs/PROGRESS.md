@@ -65,17 +65,17 @@
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
 | 6.1 | CLAUDE CODE | API client + React Query setup, query key constants | done | queryKeys.js created; React Query defaults updated (refetchOnWindowFocus: false globally); ESLint fixed and clean (installed eslint-plugin-react, fixed config to target .js/.jsx) 2026-06-25 |
-| 6.2 | CLAUDE CODE | Wire Home screen to real data | pending | |
-| 6.3 | CLAUDE CODE | Wire Chef screen to real data | pending | |
-| 6.4 | CLAUDE CODE | Wire Pantry screen to real data | pending | |
-| 6.5 | CLAUDE CODE | Wire Saved + Profile screens to real data | pending | |
+| 6.2 | CLAUDE CODE | Wire Home screen to real data | done | Auth-aware Home.jsx: trending (logged-out) + suggestions (logged-in) via React Query; skeleton loading; Cook/Save mutations with invalidation; backend embeds ingredients+steps in both list endpoints 2026-06-25 |
+| 6.3 | CLAUDE CODE | Wire Chef screen to real data | done | Generate/approve mutations wired; backend returns in_pantry per ingredient; Retry passes retryOf context; Adjust preserves filters 2026-06-25 |
+| 6.4 | CLAUDE CODE | Wire Pantry screen to real data | done | GET /pantry query; add/edit/delete mutations; new GET /ingredients catalogue endpoint for autosuggest; voice bulk add flow 2026-06-25 |
+| 6.5 | CLAUDE CODE | Wire Saved + Profile screens to real data | done | Saved: GET /saved with ingredients+in_pantry embedded, cook+delete mutations with confirm. Profile: preferences PATCH on toggle, edit form, Firebase signOut 2026-06-25 |
 
 ## Phase 7 — Voice input
 
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
-| 7.1 | CLAUDE CODE | `useVoiceInput` hook (Web Speech API) | pending | hooks/useVoiceInput.js exists but is a stub |
-| 7.2 | CLAUDE CODE | Wire Voice tab in Pantry Add Item flow | pending | |
+| 7.1 | CLAUDE CODE | `useVoiceInput` hook (Web Speech API) | done | continuous SpeechRecognition; returns supported/start/stop/status/transcript/error; fires onResult with final accumulated transcript on stop 2026-06-26 |
+| 7.2 | CLAUDE CODE | Wire Voice tab in Pantry Add Item flow | done | VoiceTab uses useVoiceInput; real mic start/stop; unsupported browser fallback; editable quantity+unit per parsed row before bulk add 2026-06-26 |
 
 ## Phase 8 — Observability
 
@@ -107,4 +107,4 @@
 ## Blocked / needs your input right now
 *(Claude Code keeps this section updated — don't edit manually except to clear it)*
 
-- None currently — run `/plated-next` to continue with step 6.2 (Wire Home screen to real data).
+- None currently — run `/plated-next` to continue with step 8.1 (OTel custom spans).

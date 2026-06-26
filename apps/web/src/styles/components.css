@@ -1860,6 +1860,33 @@ div.form-input {
   color: var(--color-text-secondary);
 }
 
+.parsed-row__edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.parsed-row__qty-input {
+  width: 56px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  text-align: right;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.parsed-row__unit-input {
+  width: 52px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
 /* ── Manual tab ──────────────────────────────────────────────────────────────── */
 
 .autosuggest-list {

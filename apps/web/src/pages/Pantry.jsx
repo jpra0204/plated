@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Toast from '../components/Toast.jsx';
 import { get, post, patch, del } from '../lib/api.js';
 import { queryKeys } from '../lib/queryKeys.js';
+import useVoiceInput from '../hooks/useVoiceInput.js';
 
 /**
  * Pantry — main grid view + full-screen Add Item flow.
@@ -331,23 +332,22 @@ function ScanTab({ onSwitchManual }) {
   );
 }
 
-// ── Voice tab — static UI; real voice wired in step 7.2 ───────────────────────
+// ── Voice tab ─────────────────────────────────────────────────────────────────
 
 function VoiceTab({ onAdded }) {
   const queryClient = useQueryClient();
-  const [voiceState, setVoiceState] = useState('idle');  // 'idle' | 'listening' | 'parsed'
-  const [parsedItems, setParsedItems] = useState([]);
+  const [parsedItems, setParsedItems] = useState([]); // [{name,quantity,unit,...}] editable
+  const [showParsed, setShowParsed]   = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
 
   const voiceMutation = useMutation({
     mutationFn: (transcript) => post('/api/v1/pantry/voice', { transcript }),
     onSuccess: (data) => {
       setParsedItems(data.items ?? []);
-      setVoiceState('parsed');
+      setShowParsed(true);
     },
     onError: () => {
       setToast({ visible: true, message: 'Could not parse voice input. Please try again.' });
-      setVoiceState('idle');
     },
   });
 
@@ -362,25 +362,40 @@ function VoiceTab({ onAdded }) {
     onError: () => setToast({ visible: true, message: 'Could not add items. Please try again.' }),
   });
 
+  const { supported, start, stop, status } = useVoiceInput({
+    onResult: (finalTranscript) => voiceMutation.mutate(finalTranscript),
+  });
+
   function handleMicTap() {
-    if (voiceState === 'idle') {
-      setVoiceState('listening');
-      // Simulated transcript for now — step 7.1/7.2 wires real Web Speech API
-      setTimeout(() => {
-        voiceMutation.mutate('6 eggs, 500g of rice, 2 onions, 1L of milk');
-      }, 2000);
-    } else if (voiceState === 'listening') {
-      setVoiceState('idle');
+    if (status === 'idle') {
+      start();
+    } else if (status === 'listening') {
+      stop();
     }
   }
 
   function handleRedo() {
     setParsedItems([]);
-    setVoiceState('idle');
+    setShowParsed(false);
   }
 
-  function handleAddAll() {
-    bulkMutation.mutate(parsedItems);
+  function updateItem(i, field, value) {
+    setParsedItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+  }
+
+  const isProcessing = status === 'processing' || voiceMutation.isPending;
+
+  if (!supported) {
+    return (
+      <div className="voice-area">
+        <div className="empty-state">
+          <p>Voice input isn&rsquo;t supported in this browser.</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+            Try Chrome or Edge, or use the Manual tab instead.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -391,36 +406,54 @@ function VoiceTab({ onAdded }) {
         onDismiss={() => setToast(t => ({ ...t, visible: false }))}
       />
 
-      {voiceState !== 'parsed' && (
+      {!showParsed && (
         <>
           <button
-            className={`mic-ring ${voiceState === 'listening' ? 'mic-ring--active' : ''}`}
+            className={`mic-ring ${status === 'listening' ? 'mic-ring--active' : ''}`}
             onClick={handleMicTap}
-            aria-label={voiceState === 'listening' ? 'Stop listening' : 'Start listening'}
+            disabled={isProcessing}
+            aria-label={status === 'listening' ? 'Stop listening' : 'Start listening'}
           >
             <MicIcon aria-hidden="true" />
           </button>
           <p className="voice-hint">
-            {voiceState === 'listening'
+            {status === 'listening'
               ? 'Listening… tap to stop'
-              : 'Tap the mic and say your ingredients.\nYou can list multiple at once.'}
+              : isProcessing
+                ? 'Processing…'
+                : 'Tap the mic and say your ingredients.\nYou can list multiple at once.'}
           </p>
-          {voiceState === 'idle' && (
+          {status === 'idle' && !isProcessing && (
             <div className="voice-example">&ldquo;6 eggs, 500g of rice, 2 onions, 1L of milk&rdquo;</div>
           )}
         </>
       )}
 
-      {voiceState === 'parsed' && (
+      {showParsed && (
         <>
-          <p className="section-label">Heard {parsedItems.length} items — confirm to add</p>
+          <p className="section-label">Heard {parsedItems.length} items — edit if needed, then add</p>
           <div className="voice-parsed">
             {parsedItems.map((item, i) => (
               <div key={i} className="parsed-row">
                 <div className="parsed-row__name">
                   <CheckCircleIcon aria-hidden="true" /> {item.name}
                 </div>
-                <span className="parsed-row__qty">{item.quantity} {item.unit}</span>
+                <div className="parsed-row__edit">
+                  <input
+                    className="parsed-row__qty-input"
+                    type="number"
+                    min="0"
+                    value={item.quantity}
+                    onChange={e => updateItem(i, 'quantity', parseFloat(e.target.value) || 0)}
+                    aria-label={`Quantity for ${item.name}`}
+                  />
+                  <input
+                    className="parsed-row__unit-input"
+                    value={item.unit}
+                    onChange={e => updateItem(i, 'unit', e.target.value)}
+                    aria-label={`Unit for ${item.name}`}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -430,7 +463,7 @@ function VoiceTab({ onAdded }) {
             </button>
             <button
               className="btn btn--primary btn--flex2"
-              onClick={handleAddAll}
+              onClick={() => bulkMutation.mutate(parsedItems)}
               disabled={bulkMutation.isPending}
             >
               <PlusCircleIcon aria-hidden="true" />

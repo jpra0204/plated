@@ -1,43 +1,86 @@
+import { useState, useRef, useCallback, useEffect } from 'react';
+
+const SpeechRecognition =
+  typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
+    : null;
+
 /**
- * useVoiceInput — wraps the Web Speech API (SpeechRecognition) for voice capture.
+ * Wraps the Web Speech API for voice capture.
  *
- * TODO: implement full hook.
+ * Returns { supported, start, stop, status, transcript, error }
+ *   status: 'idle' | 'listening' | 'processing'
+ *   supported: false when SpeechRecognition is unavailable
  *
- * Planned interface:
- *
- *   const { isListening, transcript, start, stop, error } = useVoiceInput({
- *     onResult: (finalTranscript) => { ... },
- *   });
- *
- * Notes:
- * - SpeechRecognition is only available in Chromium browsers; check
- *   `window.SpeechRecognition || window.webkitSpeechRecognition` before use.
- * - The final transcript is sent to POST /api/v1/chef/voice-parse which
- *   returns structured pantry items via Gemini.
- * - Use `interimResults: true` for live captions during recording.
+ * onResult(finalTranscript) fires once after stop() resolves the final text.
  */
-
-import { useState, useRef, useCallback } from 'react';
-
 export default function useVoiceInput({ onResult } = {}) {
-  const [isListening, setIsListening] = useState(false);
+  const [status, setStatus]       = useState('idle');
   const [transcript, setTranscript] = useState('');
-  const [error, setError] = useState(null);
-  const recognitionRef = useRef(null);
+  const [error, setError]         = useState(null);
 
-  const start = useCallback(() => {
-    // TODO: implement SpeechRecognition setup
-    void onResult;
-    setIsListening(true);
-    setTranscript('');
-    setError(null);
-  }, [onResult]);
+  const recognitionRef  = useRef(null);
+  const finalAccumRef   = useRef('');
+  const onResultRef     = useRef(onResult);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  });
 
   const stop = useCallback(() => {
-    // TODO: stop recognition and fire onResult with final transcript
     recognitionRef.current?.stop();
-    setIsListening(false);
   }, []);
 
-  return { isListening, transcript, start, stop, error };
+  const start = useCallback(() => {
+    if (!SpeechRecognition) return;
+
+    setTranscript('');
+    setError(null);
+    setStatus('listening');
+    finalAccumRef.current = '';
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    recognition.lang           = 'en-US';
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalAccumRef.current += event.results[i][0].transcript + ' ';
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      setTranscript(finalAccumRef.current + interim);
+    };
+
+    recognition.onerror = (event) => {
+      setError(event.error);
+      setStatus('idle');
+    };
+
+    recognition.onend = () => {
+      const result = finalAccumRef.current.trim();
+      if (result) {
+        setStatus('processing');
+        onResultRef.current?.(result);
+      } else {
+        setStatus('idle');
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, []);
+
+  return {
+    supported: Boolean(SpeechRecognition),
+    start,
+    stop,
+    status,
+    transcript,
+    error,
+  };
 }

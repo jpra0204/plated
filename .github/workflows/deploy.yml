@@ -11,9 +11,6 @@ on:
 #                        Artifact Registry Writer
 #                        Service Account User
 #   GCP_REGION       — Cloud Run / Artifact Registry region (e.g. northamerica-northeast1)
-#   VITE_FIREBASE_API_KEY     — Firebase web API key (baked into the web bundle)
-#   VITE_FIREBASE_AUTH_DOMAIN — Firebase auth domain
-#   VITE_FIREBASE_PROJECT_ID  — Firebase project ID
 #
 # Cloud Run service account (default Compute SA) also needs:
 #   Secret Manager Secret Accessor — so Cloud Run can read the runtime secrets
@@ -22,13 +19,15 @@ on:
 #     --member="serviceAccount:$(gcloud projects describe $PROJECT_ID \
 #       --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
 #     --role="roles/secretmanager.secretAccessor"
+#
+# Frontend is hosted on Vercel (auto-deploys from main).
+# Set VITE_API_URL in your Vercel project env vars to the Cloud Run API URL.
 
 env:
   GCP_REGION: ${{ secrets.GCP_REGION }}
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGISTRY: ${{ secrets.GCP_REGION }}-docker.pkg.dev
   IMAGE_API: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/plated/api
-  IMAGE_WEB: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/plated/web
 
 jobs:
   deploy:
@@ -78,46 +77,8 @@ jobs:
             --set-env-vars="NODE_ENV=production,PORT=3001" \
             --quiet
 
-      - name: Get API URL
-        id: api-url
+      - name: Print API URL
         run: |
-          URL=$(gcloud run services describe plated-api \
-            --region="${{ env.GCP_REGION }}" \
-            --format='value(status.url)')
-          echo "url=$URL" >> $GITHUB_OUTPUT
-
-      # ── Build & push web image (needs API URL baked in) ───────────────────
-
-      - name: Build web image
-        run: |
-          docker build \
-            -f apps/web/Dockerfile \
-            --build-arg VITE_FIREBASE_API_KEY="${{ secrets.VITE_FIREBASE_API_KEY }}" \
-            --build-arg VITE_FIREBASE_AUTH_DOMAIN="${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" \
-            --build-arg VITE_FIREBASE_PROJECT_ID="${{ secrets.VITE_FIREBASE_PROJECT_ID }}" \
-            --build-arg VITE_API_URL="${{ steps.api-url.outputs.url }}" \
-            -t ${{ env.IMAGE_WEB }}:${{ github.sha }} \
-            -t ${{ env.IMAGE_WEB }}:latest \
-            .
-
-      - name: Push web image
-        run: |
-          docker push ${{ env.IMAGE_WEB }}:${{ github.sha }}
-          docker push ${{ env.IMAGE_WEB }}:latest
-
-      # ── Deploy web to Cloud Run ────────────────────────────────────────────
-
-      - name: Deploy web to Cloud Run
-        run: |
-          gcloud run deploy plated-web \
-            --image="${{ env.IMAGE_WEB }}:${{ github.sha }}" \
-            --region="${{ env.GCP_REGION }}" \
-            --platform=managed \
-            --allow-unauthenticated \
-            --port=80 \
-            --quiet
-
-      - name: Print service URLs
-        run: |
-          echo "API: $(gcloud run services describe plated-api --region=${{ env.GCP_REGION }} --format='value(status.url)')"
-          echo "Web: $(gcloud run services describe plated-web --region=${{ env.GCP_REGION }} --format='value(status.url)')"
+          echo "API URL: $(gcloud run services describe plated-api \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.url)')"

@@ -79,7 +79,8 @@ jobs:
             --execution-environment=gen2 \
             --allow-unauthenticated \
             --port=3001 \
-            --set-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \
+            --add-volume=name=cloudsql,type=cloud-sql,instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \
+            --add-volume-mount=volume=cloudsql,mount-path=/cloudsql \
             --set-secrets="DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest" \
             --set-env-vars="NODE_ENV=production" \
             --quiet

@@ -18,6 +18,8 @@ import profileRoutes from './routes/profile.js';
 import cookRoutes from './routes/cook.js';
 import ingredientsRoutes from './routes/ingredients.js';
 
+import debugRoutes from './routes/_debug.js';
+
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
@@ -43,6 +45,7 @@ app.use('/api/v1/saved', savedRoutes);
 app.use('/api/v1/profile', profileRoutes);
 app.use('/api/v1/cook', cookRoutes);
 app.use('/api/v1/ingredients', ingredientsRoutes);
+app.use('/api/v1/_debug', debugRoutes);
 
 // ── 404 catch-all ─────────────────────────────────────────────────────────────
 app.use((_req, res) => {

@@ -14,11 +14,12 @@ on:
 #
 # Cloud Run service account (default Compute SA) also needs:
 #   Secret Manager Secret Accessor — so Cloud Run can read the runtime secrets
-# Grant it with:
-#   gcloud projects add-iam-policy-binding $PROJECT_ID \
-#     --member="serviceAccount:$(gcloud projects describe $PROJECT_ID \
-#       --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
-#     --role="roles/secretmanager.secretAccessor"
+#   Cloud SQL Client              — so Cloud Run can open the Cloud SQL socket
+# Grant both with:
+#   PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+#   SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+#   gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
+#   gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$SA" --role="roles/cloudsql.client"
 #
 # Frontend is hosted on Vercel (auto-deploys from main).
 # Set VITE_API_URL in your Vercel project env vars to the Cloud Run API URL.
@@ -72,7 +73,7 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --port=3001 \
-            --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \
+            --set-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \
             --set-secrets="DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest" \
             --set-env-vars="NODE_ENV=production" \
             --quiet

@@ -10,10 +10,6 @@ RUN npm install --omit=dev
 COPY apps/api/src ./src
 COPY apps/api/db ./db
 
-# Run as non-root user
-RUN addgroup -S plated && adduser -S plated -G plated
-USER plated
-
 EXPOSE 3001
 
 CMD ["node", "src/index.js"]

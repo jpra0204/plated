@@ -49,6 +49,8 @@ jobs:
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: '574.0.0'
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet

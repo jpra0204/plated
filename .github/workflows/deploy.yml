@@ -21,6 +21,11 @@ on:
 #   gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
 #   gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$SA" --role="roles/cloudsql.client"
 #
+# Note: --execution-environment=gen2 is required below — gen1's Cloud SQL Unix
+# socket mounting is unreliable and produces ENOENT errors connecting to
+# /cloudsql/<connection-name>/.s.PGSQL.5432 even with --set-cloudsql-instances
+# correctly configured. This bit us once already — don't remove this flag.
+#
 # Frontend is hosted on Vercel (auto-deploys from main).
 # Set VITE_API_URL in your Vercel project env vars to the Cloud Run API URL.
 
@@ -71,6 +76,7 @@ jobs:
             --image="${{ env.IMAGE_API }}:${{ github.sha }}" \
             --region="${{ env.GCP_REGION }}" \
             --platform=managed \
+            --execution-environment=gen2 \
             --allow-unauthenticated \
             --port=3001 \
             --set-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:plated-db" \

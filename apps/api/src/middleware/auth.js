@@ -30,6 +30,7 @@ const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization ?? '';
 
     if (!authHeader.startsWith('Bearer ')) {
+      console.warn('[auth] 401 no-token', req.method, req.path);
       return res.status(401).json({ error: { message: 'Missing or malformed Authorization header' } });
     }
 
@@ -39,6 +40,7 @@ const verifyFirebaseToken = async (req, res, next) => {
 
     return next();
   } catch (err) {
+    console.warn('[auth] 401 verify-failed', req.method, req.path, err.code, err.message);
     return res.status(401).json({ error: { message: 'Invalid or expired token', detail: err.message } });
   }
 };

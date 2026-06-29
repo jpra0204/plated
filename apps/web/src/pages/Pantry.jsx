@@ -269,7 +269,7 @@ function AddItemScreen({ onBack, onAdded }) {
   const [tab, setTab] = useState('scan');
 
   const TABS = [
-    { id: 'scan',   label: 'Scan',   icon: ScanIcon },
+    // { id: 'scan',   label: 'Scan',   icon: ScanIcon },
     { id: 'voice',  label: 'Voice',  icon: MicIcon },
     { id: 'manual', label: 'Manual', icon: PencilIcon },
   ];

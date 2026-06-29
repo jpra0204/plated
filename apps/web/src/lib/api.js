@@ -12,6 +12,7 @@
  *   const result = await post('/api/v1/pantry', { name: 'Eggs', quantity: 12 });
  */
 
+import { auth } from './firebase.js';
 import useAuthStore from '../stores/authStore.js';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
@@ -33,12 +34,16 @@ function buildHeaders(extra = {}) {
 
 /**
  * Core fetch wrapper.
+ * On 401: force-refreshes the Firebase token and retries once.
+ * If the retry also fails with 401, clears auth and redirects to /auth.
+ *
  * @param {string} path
  * @param {RequestInit} [options]
+ * @param {boolean} [_isRetry] - internal flag to prevent infinite loops
  * @returns {Promise<unknown>} Parsed JSON body
  * @throws {{ status: number, message: string, body: unknown }} On non-2xx
  */
-async function request(path, options = {}) {
+async function request(path, options = {}, _isRetry = false) {
   const url = `${BASE_URL}${path}`;
 
   const response = await fetch(url, {
@@ -48,6 +53,24 @@ async function request(path, options = {}) {
       ...(options.headers ?? {}),
     },
   });
+
+  // On 401, try a silent token refresh then retry once before giving up.
+  if (response.status === 401 && !_isRetry) {
+    const firebaseUser = auth.currentUser;
+    if (firebaseUser) {
+      try {
+        const freshToken = await firebaseUser.getIdToken(true);
+        useAuthStore.getState().setUser(firebaseUser, freshToken);
+        return request(path, options, true);
+      } catch {
+        // Token refresh itself failed — fall through to force-logout below.
+      }
+    }
+    // No current user or refresh failed: clear state and send to login.
+    useAuthStore.getState().clearAuth();
+    window.location.href = '/auth';
+    return;
+  }
 
   let body;
   const contentType = response.headers.get('content-type') ?? '';

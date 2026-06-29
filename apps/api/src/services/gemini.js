@@ -6,7 +6,7 @@ function getModel() {
     throw new Error('GEMINI_API_KEY is not configured');
   }
   const ai = new GoogleGenAI({ apiKey });
-  return { ai, modelName: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash' };
+  return { ai, modelName: process.env.GEMINI_MODEL ?? 'gemini-3.5-flash' };
 }
 
 function extractJSON(text, isArray = false) {

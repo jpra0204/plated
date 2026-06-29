@@ -1,43 +1,56 @@
- 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Toast — auto-dismissing notification bar.
  *
  * Props:
- *   message  string        — text to display
- *   visible  boolean       — controlled visibility
- *   onDismiss () => void   — called when the toast disappears
- *   duration number        — ms before auto-dismiss (default 3000)
- *   variant  'default'|'success' — 'success' shows green checkmark icon
+ *   message   string               — text to display
+ *   visible   boolean              — controlled visibility trigger (rising edge shows toast)
+ *   onDismiss () => void           — called after the toast finishes hiding
+ *   duration  number               — ms before auto-dismiss (default 3000)
+ *   variant   'default'|'success'  — 'success' → green background, top position, checkmark
  */
-
 export default function Toast({
   message,
   visible,
   onDismiss,
   duration = 3000,
-  variant = 'success',
+  variant = 'default',
 }) {
-  const [show, setShow] = useState(visible);
+  const [mounted, setMounted] = useState(false);
+  const [show, setShow]       = useState(false);
+  const hideTimer = useRef(null);
 
   useEffect(() => {
-    setShow(visible);
     if (!visible) return;
-    const t = setTimeout(() => {
+
+    setMounted(true);
+    // Allow one frame for the element to mount before adding the visible class
+    const enterFrame = requestAnimationFrame(() => setShow(true));
+
+    hideTimer.current = setTimeout(() => {
       setShow(false);
-      onDismiss?.();
+      // Wait for the CSS transition to finish before unmounting
+      setTimeout(() => { setMounted(false); onDismiss?.(); }, 280);
     }, duration);
-    return () => clearTimeout(t);
+
+    return () => {
+      cancelAnimationFrame(enterFrame);
+      clearTimeout(hideTimer.current);
+    };
   }, [visible, duration, onDismiss]);
 
-  if (!show) return null;
+  if (!mounted) return null;
+
+  const classes = [
+    'toast',
+    show              ? 'toast--visible' : '',
+    variant === 'success' ? 'toast--success' : '',
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className="toast" role="status" aria-live="polite">
-      {variant === 'success' && (
-        <CheckIcon className="toast__icon" aria-hidden="true" />
-      )}
+    <div className={classes} role="status" aria-live="polite">
+      {variant === 'success' && <CheckIcon className="toast__icon" aria-hidden="true" />}
       <span className="toast__message">{message}</span>
     </div>
   );

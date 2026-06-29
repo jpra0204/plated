@@ -437,6 +437,16 @@ svg { display: block; flex-shrink: 0; }
   opacity: 1;
 }
 
+.toast--success {
+  bottom: auto;
+  top: var(--space-4);
+  background: var(--color-success);
+  transform: translateX(-50%) translateY(-80px);
+}
+.toast--success.toast--visible {
+  transform: translateX(-50%) translateY(0);
+}
+
 .toast__icon {
   color: var(--color-toast-check);
   width: 16px;

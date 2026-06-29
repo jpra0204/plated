@@ -486,7 +486,7 @@ const UNITS_BY_CAT = {
   Other:   ['g', 'ml', 'tsp', 'tbsp'],
 };
 
-function ManualTab({ onAdded }) {
+function ManualTab() {
   const queryClient = useQueryClient();
 
   const [query, setQuery]       = useState('');
@@ -494,6 +494,7 @@ function ManualTab({ onAdded }) {
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit]         = useState('');
   const [category, setCategory] = useState('');
+  const [toast, setToast]       = useState({ visible: false, message: '' });
 
   // Ingredient catalogue for autosuggest
   const { data: catalogueData } = useQuery({
@@ -511,12 +512,18 @@ function ManualTab({ onAdded }) {
 
   const addMutation = useMutation({
     mutationFn: (item) => post('/api/v1/pantry', item),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
       queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
-      onAdded();
+      setToast({ visible: true, message: `${variables.name} added to pantry!` });
+      setSelected(null);
+      setQuery('');
+      setQuantity('');
+      setUnit('');
+      setCategory('');
     },
+    onError: () => setToast({ visible: true, message: 'Could not add item. Please try again.' }),
   });
 
   function handleSelect(ing) {
@@ -548,6 +555,13 @@ function ManualTab({ onAdded }) {
 
   return (
     <>
+      <Toast
+        message={toast.message}
+        visible={toast.visible}
+        variant={addMutation.isError ? 'default' : 'success'}
+        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
+      />
+
       <div className="form-field">
         <label className="form-label" htmlFor="ing-name">Ingredient name</label>
         <div className={`form-input ${selected ? 'form-input--selected' : query ? 'form-input--active' : ''}`}>

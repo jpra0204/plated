@@ -55,6 +55,9 @@
   --color-tag-missing-bg:     var(--color-match-low-bg);
   --color-tag-missing-text:   var(--color-match-low-text);
 
+  /* ── Status ────────────────────────────────────────────────────────────── */
+  --color-success:      #4A9B5F;   /* success green — success toast bg, parsed-row checkmark */
+
   /* ── Toast ─────────────────────────────────────────────────────────────── */
   --color-toast-bg:     #333333;
   --color-toast-check:  #97C459;

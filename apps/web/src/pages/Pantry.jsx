@@ -192,7 +192,7 @@ export default function Pantry() {
                     />
                   ) : (
                     <>
-                      <div className="ing-tile__icon" aria-hidden="true" />
+                      <div className="ing-tile__emoji" aria-hidden="true" />
                       <div className="ing-tile__body">
                         <div className="ing-tile__name">{item.name}</div>
                         <div className="ing-tile__qty">{item.quantity} {item.unit}</div>
@@ -266,7 +266,7 @@ function EditTile({ draft, setDraft, onSave, onCancel, saving }) {
 // ── Add Item full-screen ───────────────────────────────────────────────────────
 
 function AddItemScreen({ onBack, onAdded }) {
-  const [tab, setTab] = useState('scan');
+  const [tab, setTab] = useState('voice');
 
   const TABS = [
     // { id: 'scan',   label: 'Scan',   icon: ScanIcon },
@@ -409,7 +409,7 @@ function VoiceTab({ onAdded }) {
       {!showParsed && (
         <>
           <button
-            className={`mic-ring ${status === 'listening' ? 'mic-ring--active' : ''}`}
+            className={`mic-ring ${status === 'listening' ? 'mic-ring--listening' : ''}`}
             onClick={handleMicTap}
             disabled={isProcessing}
             aria-label={status === 'listening' ? 'Stop listening' : 'Start listening'}

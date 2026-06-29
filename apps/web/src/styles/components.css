@@ -475,6 +475,14 @@ svg { display: block; flex-shrink: 0; }
 
 .search-bar__input::placeholder { color: var(--color-text-disabled); }
 
+.search-bar__clear {
+  flex-shrink: 0;
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--color-text-secondary);
+  padding: 0 2px;
+}
+
 /* ── Form elements ───────────────────────────────────────────────────────────── */
 
 .form-field { margin-bottom: var(--space-4); }
@@ -1672,6 +1680,16 @@ div.form-input {
   margin-bottom: var(--space-6);
 }
 
+.fs-nav__title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.fs-nav__spacer {
+  width: 80px;
+}
+
 .fs-nav h2 {
   font-size: var(--text-xl);
   font-weight: 700;
@@ -1769,11 +1787,37 @@ div.form-input {
 }
 
 .scan-or {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   font-size: var(--text-xs);
   color: var(--color-text-disabled);
   margin: var(--space-4) 0;
 }
+
+.scan-or__line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.manual-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  background: none;
+  cursor: pointer;
+  margin: 0 auto;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.manual-trigger:hover { background: var(--color-bg); color: var(--color-text-primary); }
+.manual-trigger svg { width: 14px; height: 14px; }
 
 /* ── Voice tab ───────────────────────────────────────────────────────────────── */
 
@@ -1854,6 +1898,15 @@ div.form-input {
   font-size: var(--text-sm);
   color: var(--color-text-primary);
 }
+
+.parsed-row__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+  font-size: var(--text-sm);
+}
+.parsed-row__name svg { width: 16px; height: 16px; color: var(--color-success); }
 
 .parsed-row__qty {
   font-size: var(--text-xs);

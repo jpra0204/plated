@@ -1618,6 +1618,17 @@ div.form-input {
   align-items: center;
   gap: 6px;
   text-align: center;
+  transition: padding var(--transition-base), box-shadow var(--transition-base),
+              border-color var(--transition-base), background var(--transition-base);
+}
+
+.ing-tile--editing {
+  grid-column: 1 / -1;
+  padding: var(--space-4) var(--space-4);
+  border-color: var(--color-primary-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  align-items: stretch;
+  text-align: left;
 }
 
 .ing-tile__emoji {
@@ -1663,20 +1674,48 @@ div.form-input {
 
 .icon-btn--danger:hover { background: color-mix(in srgb, var(--color-error) 12%, transparent); color: var(--color-error); }
 
+.icon-btn--edit-action {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+.icon-btn--edit-action svg { width: 20px; height: 20px; }
+
 .ing-tile__edit {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  animation: edit-expand 0.2s ease;
+}
+
+@keyframes edit-expand {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ing-tile__edit-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ing-tile__edit-row {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .ing-tile__edit-qty,
 .ing-tile__edit-unit {
-  width: 48px;
-  padding: 4px 6px;
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-2xs);
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   color: var(--color-text-primary);
   background: var(--color-bg);
 }

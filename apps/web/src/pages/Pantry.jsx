@@ -181,9 +181,10 @@ export default function Pantry() {
             <p className="cat-label">{cat}</p>
             <div className="ing-grid">
               {items.map(item => (
-                <div key={item.id} className="ing-tile">
+                <div key={item.id} className={`ing-tile${editingId === item.id ? ' ing-tile--editing' : ''}`}>
                   {editingId === item.id ? (
                     <EditTile
+                      name={item.name}
                       draft={editDraft}
                       setDraft={setEditDraft}
                       onSave={() => commitEdit(item.id)}
@@ -235,30 +236,33 @@ export default function Pantry() {
 
 // ── Edit tile (inline quantity/unit editor) ───────────────────────────────────
 
-function EditTile({ draft, setDraft, onSave, onCancel, saving }) {
+function EditTile({ name, draft, setDraft, onSave, onCancel, saving }) {
   return (
     <div className="ing-tile__edit">
-      <input
-        className="ing-tile__edit-qty"
-        type="number"
-        min="0"
-        value={draft.quantity}
-        onChange={e => setDraft(d => ({ ...d, quantity: e.target.value }))}
-        aria-label="Quantity"
-        autoFocus
-      />
-      <input
-        className="ing-tile__edit-unit"
-        value={draft.unit}
-        onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
-        aria-label="Unit"
-      />
-      <button className="icon-btn" onClick={onSave} disabled={saving} aria-label="Save">
-        <CheckIcon aria-hidden="true" />
-      </button>
-      <button className="icon-btn" onClick={onCancel} disabled={saving} aria-label="Cancel">
-        <XIcon aria-hidden="true" />
-      </button>
+      <div className="ing-tile__edit-name">{name}</div>
+      <div className="ing-tile__edit-row">
+        <input
+          className="ing-tile__edit-qty"
+          type="number"
+          min="0"
+          value={draft.quantity}
+          onChange={e => setDraft(d => ({ ...d, quantity: e.target.value }))}
+          aria-label="Quantity"
+          autoFocus
+        />
+        <input
+          className="ing-tile__edit-unit"
+          value={draft.unit}
+          onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
+          aria-label="Unit"
+        />
+        <button className="icon-btn icon-btn--edit-action" onClick={onSave} disabled={saving} aria-label="Save">
+          <CheckIcon aria-hidden="true" />
+        </button>
+        <button className="icon-btn icon-btn--edit-action" onClick={onCancel} disabled={saving} aria-label="Cancel">
+          <XIcon aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }

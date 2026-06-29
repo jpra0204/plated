@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pantry Sync & Inline Edit Wireframes</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #D75A4A;
+    --primary-dark: #D24735;
+    --primary-light: #E08074;
+    --secondary: #A8B39A;
+    --app-bg: #FAF9F6;
+    --card-bg: #FFFFFF;
+    --border: rgba(0,0,0,0.1);
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --tab-h: 64px;
+  }
+  body {
+    background: #EFEDE7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text-primary);
+  }
+  .wf-root {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 2rem 1rem;
+    gap: 3rem;
+    justify-content: center;
+  }
+  .screen-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .screen-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-secondary); text-align: center;
+    max-width: 320px;
+  }
+  .phone {
+    width: 320px; background: var(--app-bg);
+    border-radius: 28px; border: 1.5px solid rgba(0,0,0,0.13);
+    overflow: hidden; display: flex; flex-direction: column;
+    min-height: 600px; position: relative;
+  }
+  .status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px 4px; font-size: 11px; color: var(--text-secondary);
+  }
+  .top-nav { padding: 4px 16px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .top-nav h1 { font-size: 20px; font-weight: 600; color: var(--text-primary); }
+  .content { flex: 1; padding: 0 14px; display: flex; flex-direction: column; gap: 12px; }
+  .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text-secondary); margin-bottom: -2px;
+  }
+  .search-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 14px; padding: 10px 14px; color: var(--text-secondary); font-size: 13px;
+  }
+  .chips-row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip {
+    border-radius: 20px; padding: 6px 14px; font-size: 13px;
+    border: 0.5px solid var(--border); background: var(--card-bg); color: var(--text-secondary);
+  }
+  .chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .cat-row { display: flex; align-items: center; justify-content: space-between; }
+  .cat-name {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text-secondary);
+  }
+  .ing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* Default tile */
+  .ing-tile {
+    background: var(--card-bg); border: 0.5px solid var(--border); border-radius: 14px;
+    padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .ing-icon { width: 32px; height: 32px; border-radius: 10px; background: var(--secondary); opacity: 0.3; flex-shrink: 0; }
+  .ing-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .ing-qty { font-size: 11px; color: var(--text-secondary); }
+
+  /* Expanded tile (inline edit state) — spans both grid columns */
+  .ing-tile-expanded {
+    grid-column: span 2;
+    background: var(--card-bg); border: 1.5px solid var(--primary); border-radius: 16px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .expanded-top-row { display: flex; align-items: center; justify-content: space-between; }
+  .expanded-name-block { display: flex; align-items: center; gap: 8px; }
+  .expanded-name-block .ing-icon { width: 30px; height: 30px; }
+  .expanded-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .expanded-delete {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #FAF0EF; color: #A32D2D;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; border: none;
+  }
+  .stepper-row { display: flex; align-items: center; justify-content: center; gap: 0; }
+  .stepper {
+    display: flex; align-items: center; background: var(--app-bg);
+    border-radius: 12px; border: 0.5px solid var(--border); overflow: hidden;
+  }
+  .stepper-btn {
+    width: 42px; height: 40px; display: flex; align-items: center; justify-content: center;
+    color: var(--primary); background: transparent; border: none; font-size: 18px;
+  }
+  .stepper-val {
+    min-width: 70px; text-align: center; font-size: 15px; font-weight: 600;
+    color: var(--text-primary); border-left: 0.5px solid var(--border);
+    border-right: 0.5px solid var(--border); height: 40px; line-height: 40px;
+  }
+  .expanded-hint {
+    font-size: 10px; color: var(--text-secondary); text-align: center;
+  }
+
+  .fab {
+    position: absolute; bottom: calc(var(--tab-h) + 14px); right: 14px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--primary); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; border: none;
+  }
+  .tab-bar {
+    height: var(--tab-h); background: var(--card-bg); border-top: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: space-around; padding: 0 8px; flex-shrink: 0;
+  }
+  .tab-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    flex: 1; font-size: 10px; color: var(--text-secondary); padding: 8px 0;
+  }
+  .tab-item i { font-size: 22px; }
+  .tab-item.active { color: var(--primary); }
+  .page-bottom { height: 10px; }
+
+  /* MODAL: pantry sync reminder */
+  .modal-overlay {
+    position: absolute; inset: 0; background: rgba(20,18,16,0.55);
+    display: flex; align-items: flex-end; justify-content: center; z-index: 10;
+  }
+  .modal-sheet {
+    width: 100%; background: var(--app-bg);
+    border-radius: 24px 24px 0 0; max-height: 92%;
+    display: flex; flex-direction: column;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.2);
+  }
+  .modal-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 18px 18px 4px;
+  }
+  .modal-title-block { display: flex; flex-direction: column; gap: 4px; }
+  .modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+  .modal-sub { font-size: 12px; color: var(--text-secondary); line-height: 1.4; max-width: 240px; }
+  .modal-close {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); font-size: 16px; flex-shrink: 0;
+  }
+  .modal-meal-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #FAF0EF; color: #A32D2D; border-radius: 20px;
+    padding: 4px 11px; font-size: 11px; font-weight: 600; align-self: flex-start;
+    margin: 4px 18px 0;
+  }
+  .modal-body {
+    padding: 12px 18px 6px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+    flex: 1;
+  }
+  .modal-voice-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 14px; padding: 10px 12px;
+  }
+  .modal-voice-bar .mic-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #FAF0EF; color: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0; border: none;
+  }
+  .modal-voice-bar .voice-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+  .modal-voice-bar .voice-text b { color: var(--text-primary); }
+
+  .modal-item-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card-bg); border: 0.5px solid var(--border);
+    border-radius: 14px; padding: 10px 12px;
+  }
+  .modal-item-left { display: flex; align-items: center; gap: 10px; }
+  .modal-item-left .ing-icon { width: 30px; height: 30px; }
+  .modal-item-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .modal-item-qty { font-size: 11px; color: var(--text-secondary); }
+  .modal-item-right { display: flex; align-items: center; gap: 6px; }
+  .mini-stepper {
+    display: flex; align-items: center; background: var(--app-bg);
+    border-radius: 10px; border: 0.5px solid var(--border); overflow: hidden;
+  }
+  .mini-stepper-btn {
+    width: 28px; height: 30px; display: flex; align-items: center; justify-content: center;
+    color: var(--primary); background: transparent; border: none; font-size: 14px;
+  }
+  .mini-stepper-val {
+    min-width: 36px; text-align: center; font-size: 12px; font-weight: 600;
+    color: var(--text-primary); border-left: 0.5px solid var(--border);
+    border-right: 0.5px solid var(--border); height: 30px; line-height: 30px;
+  }
+  .mini-delete {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #FAF0EF; color: #A32D2D;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; border: none; flex-shrink: 0;
+  }
+
+  .modal-footer {
+    padding: 12px 18px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .modal-autosave-note {
+    font-size: 10px; color: var(--text-secondary); text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .modal-autosave-note i { font-size: 13px; color: #3B6D11; }
+  .btn-done {
+    background: var(--primary); color: white; border: none; border-radius: 16px;
+    padding: 14px; font-size: 15px; font-weight: 700; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .annotation-box {
+    margin-top: 18px; max-width: 320px; background: #FFF8E1;
+    border: 1px solid #F0D58C; border-radius: 12px; padding: 12px 14px;
+    font-size: 11.5px; color: #5C4A1A; line-height: 1.6;
+  }
+  .annotation-box b { color: #3D3013; }
+</style>
+</head>
+<body>
+
+<div class="wf-root">
+
+  <!-- SCREEN 1: PANTRY MAIN — DEFAULT -->
+  <div class="screen-wrap">
+    <p class="screen-label">Pantry — Default grid (before tap)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery"></i></span></div>
+      <div class="top-nav">
+        <h1>My pantry</h1>
+        <div style="font-size:12px;color:var(--text-secondary)">14 items</div>
+      </div>
+      <div class="content">
+        <div class="search-bar"><i class="ti ti-search"></i><span>Search ingredients…</span></div>
+        <div class="chips-row">
+          <div class="chip active">All</div>
+          <div class="chip">Produce</div>
+          <div class="chip">Dairy</div>
+          <div class="chip">Grains</div>
+        </div>
+        <div class="cat-row"><span class="cat-name">Dairy</span></div>
+        <div class="ing-grid">
+          <div class="ing-tile">
+            <div class="ing-icon"></div>
+            <div><div class="ing-name">Eggs</div><div class="ing-qty">6 pcs</div></div>
+          </div>
+          <div class="ing-tile">
+            <div class="ing-icon"></div>
+            <div><div class="ing-name">Feta cheese</div><div class="ing-qty">200 g</div></div>
+          </div>
+        </div>
+        <div class="cat-row"><span class="cat-name">Produce</span></div>
+        <div class="ing-grid">
+          <div class="ing-tile">
+            <div class="ing-icon"></div>
+            <div><div class="ing-name">Tomatoes</div><div class="ing-qty">3 pcs</div></div>
+          </div>
+          <div class="ing-tile">
+            <div class="ing-icon"></div>
+            <div><div class="ing-name">Garlic</div><div class="ing-qty">6 cloves</div></div>
+          </div>
+        </div>
+        <div class="page-bottom"></div>
+      </div>
+      <button class="fab"><i class="ti ti-plus"></i></button>
+      <div class="tab-bar">
+        <div class="tab-item"><i class="ti ti-home"></i><span>Home</span></div>
+        <div class="tab-item"><i class="ti ti-sparkles"></i><span>Chef</span></div>
+        <div class="tab-item active"><i class="ti ti-basket"></i><span>Pantry</span></div>
+        <div class="tab-item"><i class="ti ti-bookmark"></i><span>Saved</span></div>
+        <div class="tab-item"><i class="ti ti-user"></i><span>Profile</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: PANTRY — INLINE EXPANDED TILE -->
+  <div class="screen-wrap">
+    <p class="screen-label">Pantry — Tile tapped → inline quantity editor</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery"></i></span></div>
+      <div class="top-nav">
+        <h1>My pantry</h1>
+        <div style="font-size:12px;color:var(--text-secondary)">14 items</div>
+      </div>
+      <div class="content">
+        <div class="search-bar"><i class="ti ti-search"></i><span>Search ingredients…</span></div>
+        <div class="chips-row">
+          <div class="chip active">All</div>
+          <div class="chip">Produce</div>
+          <div class="chip">Dairy</div>
+          <div class="chip">Grains</div>
+        </div>
+        <div class="cat-row"><span class="cat-name">Dairy</span></div>
+        <div class="ing-grid">
+          <div class="ing-tile-expanded">
+            <div class="expanded-top-row">
+              <div class="expanded-name-block">
+                <div class="ing-icon"></div>
+                <div class="expanded-name">Eggs</div>
+              </div>
+              <button class="expanded-delete" aria-label="Delete eggs"><i class="ti ti-trash"></i></button>
+            </div>
+            <div class="stepper-row">
+              <div class="stepper">
+                <button class="stepper-btn" aria-label="Decrease"><i class="ti ti-minus"></i></button>
+                <div class="stepper-val">4 pcs</div>
+                <button class="stepper-btn" aria-label="Increase"><i class="ti ti-plus"></i></button>
+              </div>
+            </div>
+            <p class="expanded-hint">Changes save automatically · tap outside to close</p>
+          </div>
+        </div>
+        <div class="cat-row" style="margin-top:4px"><span class="cat-name">Produce</span></div>
+        <div class="ing-grid">
+          <div class="ing-tile">
+            <div class="ing-icon"></div>
+            <div><div class="ing-name">Tomatoes</div><div class="ing-qty">3 pcs</div></div>
+          </div>
+          <div class="ing-tile">
+            <div class="ing-icon"></div>
+            <div><div class="ing-name">Garlic</div><div class="ing-qty">6 cloves</div></div>
+          </div>
+        </div>
+        <div class="page-bottom"></div>
+      </div>
+      <button class="fab"><i class="ti ti-plus"></i></button>
+      <div class="tab-bar">
+        <div class="tab-item"><i class="ti ti-home"></i><span>Home</span></div>
+        <div class="tab-item"><i class="ti ti-sparkles"></i><span>Chef</span></div>
+        <div class="tab-item active"><i class="ti ti-basket"></i><span>Pantry</span></div>
+        <div class="tab-item"><i class="ti ti-bookmark"></i><span>Saved</span></div>
+        <div class="tab-item"><i class="ti ti-user"></i><span>Profile</span></div>
+      </div>
+    </div>
+    <div class="annotation-box">
+      <b>Inline edit behaviour:</b> Tapping any tile expands it in place (spans both grid columns so there's room for the stepper). Minus/plus adjust quantity, saves immediately on each tap — no confirm step. Trash icon deletes the item entirely with no extra confirmation (matches "easy and fast" goal). Tapping anywhere outside the expanded tile collapses it back to the compact view.
+    </div>
+  </div>
+
+  <!-- SCREEN 3: PANTRY SYNC MODAL — TRIGGERED ON RETURN -->
+  <div class="screen-wrap">
+    <p class="screen-label">Home — Pantry sync reminder modal (on login/session resume, meal-time window)</p>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery"></i></span></div>
+      <div class="top-nav">
+        <h1>Good afternoon, Jamie</h1>
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--card-bg);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:18px"><i class="ti ti-bell"></i></div>
+      </div>
+      <div class="content">
+        <div style="background:var(--primary);border-radius:20px;padding:16px;color:white">
+          <h2 style="font-size:17px;font-weight:600;margin-bottom:4px">What can I cook today?</h2>
+          <p style="font-size:13px;opacity:0.85">You have 14 items in your pantry. Let Chef find something delicious.</p>
+        </div>
+      </div>
+
+      <!-- modal overlay -->
+      <div class="modal-overlay">
+        <div class="modal-sheet">
+          <div class="modal-header">
+            <div class="modal-title-block">
+              <div class="modal-title">Quick pantry update</div>
+              <div class="modal-sub">Cooked something since your last visit? Update your pantry so Chef stays accurate.</div>
+            </div>
+            <button class="modal-close" aria-label="Close"><i class="ti ti-x"></i></button>
+          </div>
+          <div class="modal-meal-badge"><i class="ti ti-clock" style="font-size:12px"></i> After lunch check-in</div>
+
+          <div class="modal-body">
+            <div class="modal-voice-bar">
+              <button class="mic-btn" aria-label="Use voice"><i class="ti ti-microphone"></i></button>
+              <div class="voice-text"><b>Tap to talk:</b> "used 2 eggs and half the rice"</div>
+            </div>
+
+            <div class="modal-item-row">
+              <div class="modal-item-left">
+                <div class="ing-icon"></div>
+                <div><div class="modal-item-name">Eggs</div><div class="modal-item-qty">6 pcs</div></div>
+              </div>
+              <div class="modal-item-right">
+                <div class="mini-stepper">
+                  <button class="mini-stepper-btn"><i class="ti ti-minus"></i></button>
+                  <div class="mini-stepper-val">6</div>
+                  <button class="mini-stepper-btn"><i class="ti ti-plus"></i></button>
+                </div>
+                <button class="mini-delete"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+
+            <div class="modal-item-row">
+              <div class="modal-item-left">
+                <div class="ing-icon"></div>
+                <div><div class="modal-item-name">Rice</div><div class="modal-item-qty">500 g</div></div>
+              </div>
+              <div class="modal-item-right">
+                <div class="mini-stepper">
+                  <button class="mini-stepper-btn"><i class="ti ti-minus"></i></button>
+                  <div class="mini-stepper-val">500</div>
+                  <button class="mini-stepper-btn"><i class="ti ti-plus"></i></button>
+                </div>
+                <button class="mini-delete"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+
+            <div class="modal-item-row">
+              <div class="modal-item-left">
+                <div class="ing-icon"></div>
+                <div><div class="modal-item-name">Tomatoes</div><div class="modal-item-qty">3 pcs</div></div>
+              </div>
+              <div class="modal-item-right">
+                <div class="mini-stepper">
+                  <button class="mini-stepper-btn"><i class="ti ti-minus"></i></button>
+                  <div class="mini-stepper-val">3</div>
+                  <button class="mini-stepper-btn"><i class="ti ti-plus"></i></button>
+                </div>
+                <button class="mini-delete"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+
+            <div class="modal-item-row">
+              <div class="modal-item-left">
+                <div class="ing-icon"></div>
+                <div><div class="modal-item-name">Garlic</div><div class="modal-item-qty">6 cloves</div></div>
+              </div>
+              <div class="modal-item-right">
+                <div class="mini-stepper">
+                  <button class="mini-stepper-btn"><i class="ti ti-minus"></i></button>
+                  <div class="mini-stepper-val">6</div>
+                  <button class="mini-stepper-btn"><i class="ti ti-plus"></i></button>
+                </div>
+                <button class="mini-delete"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <div class="modal-autosave-note"><i class="ti ti-circle-check"></i> Changes save automatically</div>
+            <button class="btn-done"><i class="ti ti-check" style="font-size:16px"></i> Done</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="annotation-box">
+      <b>Modal trigger logic:</b> Appears on login or session resume only if current time falls within a meal-adjacent window (7–9am, 12–2pm, 1–3pm overlap zone, 7–9pm — exact bounds TBD in spec doc). Every quantity change and delete saves immediately, no batch save. "Done" and the "X" in the top-right are functionally identical — both simply close the modal, no other side effects. Voice bar accepts both natural language ("used 2 eggs and half the rice") and command-style input ("eggs minus 2"). <b>Note:</b> a banner-style variant of this same reminder is worth A/B testing later — not built for MVP, captured in the spec doc only.
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

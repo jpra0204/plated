@@ -1,5 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 
+// Status codes from the Gemini API that are safe to retry (transient failures).
+const RETRIABLE_CODES = new Set([429, 503]);
+const FALLBACK_MODEL = 'gemini-2.0-flash';
+
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your-gemini-api-key') {
@@ -14,6 +18,34 @@ function extractJSON(text, isArray = false) {
   const match = text.match(pattern);
   if (!match) throw new Error('Gemini response contained no parseable JSON');
   return JSON.parse(match[0]);
+}
+
+/**
+ * Call ai.models.generateContent with up to `retries` retries on transient
+ * errors, then fall back to FALLBACK_MODEL if the primary model is still
+ * unavailable. Delays between attempts: 1 s, 2 s (linear backoff).
+ */
+async function generateContent(ai, model, contents) {
+  let lastErr;
+
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1000));
+    try {
+      return await ai.models.generateContent({ model, contents });
+    } catch (err) {
+      lastErr = err;
+      if (!RETRIABLE_CODES.has(err.status ?? err.statusCode)) throw err;
+      console.warn(`[gemini] ${model} attempt ${attempt + 1} failed (${err.status}), retrying…`);
+    }
+  }
+
+  // Primary model exhausted — try fallback once if it's a different model.
+  if (model !== FALLBACK_MODEL) {
+    console.warn(`[gemini] falling back to ${FALLBACK_MODEL}`);
+    return ai.models.generateContent({ model: FALLBACK_MODEL, contents });
+  }
+
+  throw lastErr;
 }
 
 /**
@@ -66,7 +98,7 @@ Respond ONLY with a valid JSON object in this exact shape:
 `.trim();
 
   const { ai, modelName } = getModel();
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  const response = await generateContent(ai, modelName, prompt);
   return extractJSON(response.text, false);
 }
 
@@ -92,6 +124,6 @@ Respond ONLY with a JSON array:
 `.trim();
 
   const { ai, modelName } = getModel();
-  const response = await ai.models.generateContent({ model: modelName, contents: prompt });
+  const response = await generateContent(ai, modelName, prompt);
   return extractJSON(response.text, true);
 }

@@ -1618,8 +1618,8 @@ div.form-input {
   align-items: center;
   gap: 6px;
   text-align: center;
-  transition: padding var(--transition-base), box-shadow var(--transition-base),
-              border-color var(--transition-base), background var(--transition-base);
+  transition: padding var(--transition-slow), box-shadow var(--transition-slow),
+              border-color var(--transition-slow), background var(--transition-slow);
 }
 
 .ing-tile--editing {
@@ -1687,11 +1687,11 @@ div.form-input {
   flex-direction: column;
   gap: var(--space-3);
   width: 100%;
-  animation: edit-expand 0.2s ease;
+  animation: edit-expand 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes edit-expand {
-  from { opacity: 0; transform: translateY(-6px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 

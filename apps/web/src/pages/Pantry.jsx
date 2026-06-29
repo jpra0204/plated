@@ -15,6 +15,19 @@ import useVoiceInput from '../hooks/useVoiceInput.js';
 
 const CATEGORIES = ['All', 'Produce', 'Dairy', 'Grains', 'Protein', 'Other'];
 
+const UNITS_BY_CAT = {
+  Produce: ['pcs', 'g', 'kg'],
+  Dairy:   ['pcs', 'ml', 'g'],
+  Grains:  ['g', 'kg', 'cups'],
+  Protein: ['g', 'kg', 'pcs'],
+  Other:   ['g', 'ml', 'tsp', 'tbsp'],
+};
+
+function formatQty(qty) {
+  const n = parseFloat(qty);
+  return isNaN(n) ? String(qty) : String(n);
+}
+
 export default function Pantry() {
   const queryClient = useQueryClient();
   const [view, setView] = useState('main');
@@ -88,7 +101,7 @@ export default function Pantry() {
   // ── Edit inline helpers ───────────────────────────────────────────────────
   function startEdit(item) {
     setEditingId(item.id);
-    setEditDraft({ quantity: String(item.quantity), unit: item.unit });
+    setEditDraft({ quantity: formatQty(item.quantity), unit: item.unit, category: capitalize(item.category) });
   }
 
   function commitEdit(id) {
@@ -196,7 +209,7 @@ export default function Pantry() {
                       <div className="ing-tile__emoji" aria-hidden="true" />
                       <div className="ing-tile__body">
                         <div className="ing-tile__name">{item.name}</div>
-                        <div className="ing-tile__qty">{item.quantity} {item.unit}</div>
+                        <div className="ing-tile__qty">{formatQty(item.quantity)} {item.unit}</div>
                       </div>
                       <div className="ing-tile__actions">
                         <button
@@ -237,6 +250,8 @@ export default function Pantry() {
 // ── Edit tile (inline quantity/unit editor) ───────────────────────────────────
 
 function EditTile({ name, draft, setDraft, onSave, onCancel, saving }) {
+  const unitOptions = UNITS_BY_CAT[draft.category] ?? ['g', 'ml', 'pcs'];
+
   return (
     <div className="ing-tile__edit">
       <div className="ing-tile__edit-name">{name}</div>
@@ -250,12 +265,17 @@ function EditTile({ name, draft, setDraft, onSave, onCancel, saving }) {
           aria-label="Quantity"
           autoFocus
         />
-        <input
+        <select
           className="ing-tile__edit-unit"
           value={draft.unit}
           onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
           aria-label="Unit"
-        />
+        >
+          {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+          {!unitOptions.includes(draft.unit) && (
+            <option value={draft.unit}>{draft.unit}</option>
+          )}
+        </select>
         <button className="icon-btn icon-btn--edit-action" onClick={onSave} disabled={saving} aria-label="Save">
           <CheckIcon aria-hidden="true" />
         </button>
@@ -481,14 +501,6 @@ function VoiceTab({ onAdded }) {
 }
 
 // ── Manual tab ────────────────────────────────────────────────────────────────
-
-const UNITS_BY_CAT = {
-  Produce: ['pcs', 'g', 'kg'],
-  Dairy:   ['pcs', 'ml', 'g'],
-  Grains:  ['g', 'kg', 'cups'],
-  Protein: ['g', 'kg', 'pcs'],
-  Other:   ['g', 'ml', 'tsp', 'tbsp'],
-};
 
 function ManualTab() {
   const queryClient = useQueryClient();

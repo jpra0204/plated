@@ -127,3 +127,45 @@ Respond ONLY with a JSON array:
   const response = await generateContent(ai, modelName, prompt);
   return extractJSON(response.text, true);
 }
+
+/**
+ * Parse a natural-language pantry update (e.g. "used 2 eggs and half the rice")
+ * against the user's current pantry and return quantity deltas.
+ *
+ * @param {string} transcript
+ * @param {Array<{id: number, name: string, quantity: number, unit: string}>} pantryItems
+ * @returns {Promise<Array<{id: number, name: string, newQuantity: number, unit: string}>>}
+ */
+export async function parseVoiceSync(transcript, pantryItems) {
+  const pantryList = pantryItems
+    .map(i => `- id:${i.id} "${i.name}" current: ${i.quantity} ${i.unit}`)
+    .join('\n');
+
+  const prompt = `
+The user has spoken a pantry update after cooking. Parse their statement and return
+new quantities for the mentioned pantry items.
+
+Current pantry:
+${pantryList}
+
+User said: "${transcript}"
+
+Rules:
+- Natural language: "used 2 eggs" → subtract 2 from eggs current quantity
+- "half the X" → subtract half of X's current quantity, rounded to nearest step
+- Command style: "eggs minus 2, rice minus 100g" → explicit subtraction per item
+- Only include items actually mentioned — omit everything else
+- newQuantity must be >= 0 (clamp to 0 if calculation would go negative)
+- Match item names case-insensitively; fuzzy match is fine
+- Use the item id and unit from the pantry list above
+
+Respond ONLY with a JSON array (empty array if nothing could be parsed):
+[
+  { "id": 1, "name": "Eggs", "newQuantity": 4, "unit": "pcs" }
+]
+`.trim();
+
+  const { ai, modelName } = getModel();
+  const response = await generateContent(ai, modelName, prompt);
+  return extractJSON(response.text, true);
+}

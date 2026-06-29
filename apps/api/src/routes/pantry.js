@@ -14,6 +14,7 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
 import { parseTranscript } from '../services/voice.js';
+import { parseVoiceSync } from '../services/gemini.js';
 
 const tracer = trace.getTracer('plated-api');
 
@@ -217,6 +218,36 @@ router.delete('/:id', async (req, res, next) => {
       .update({ deleted_at: db.fn.now() });
 
     return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /voice-sync ───────────────────────────────────────────────────────────
+// Must be declared before /:id to avoid route conflict — this is handled by
+// file ordering (this section appears after /bulk which is already above /:id).
+
+router.post('/voice-sync', async (req, res, next) => {
+  try {
+    const { transcript } = req.body;
+    if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
+      return res.status(400).json({ error: { message: 'transcript is required.' } });
+    }
+
+    const user = await getUser(req, res);
+    if (!user) return;
+
+    const pantryItems = await db('pantry_items')
+      .where({ user_id: user.id })
+      .whereNull('deleted_at')
+      .select('id', 'name', 'quantity', 'unit', 'category');
+
+    if (pantryItems.length === 0) {
+      return res.json({ updates: [] });
+    }
+
+    const updates = await parseVoiceSync(transcript.trim(), pantryItems);
+    return res.json({ updates });
   } catch (err) {
     next(err);
   }

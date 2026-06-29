@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Toast from '../components/Toast.jsx';
 import { get, post, patch, del } from '../lib/api.js';
@@ -28,14 +28,24 @@ function formatQty(qty) {
   return isNaN(n) ? String(qty) : String(n);
 }
 
+function getStep(unit) {
+  if (['kg', 'l'].includes(unit)) return 0.1;
+  if (unit === 'g') return 10;
+  if (unit === 'ml') return 50;
+  return 1;
+}
+
 export default function Pantry() {
   const queryClient = useQueryClient();
   const [view, setView] = useState('main');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [toast, setToast] = useState({ visible: false, message: '' });
-  const [editingId, setEditingId] = useState(null);   // item ID being inline-edited
-  const [editDraft, setEditDraft] = useState({});      // { quantity, unit }
+  const [expandedId, setExpandedId] = useState(null);
+  const [expandedQty, setExpandedQty] = useState(0);
+  const expandedQtyRef = useRef(null);
+  const expandedUnitRef = useRef('');
+  const saveTimerRef = useRef(null);
 
   const showToast = (message) => setToast({ visible: true, message });
 
@@ -60,10 +70,7 @@ export default function Pantry() {
       : allItems;
     return activeCategory === 'All'
       ? bySearch
-      : bySearch.filter(i => {
-          const cat = capitalize(i.category);
-          return cat === activeCategory;
-        });
+      : bySearch.filter(i => capitalize(i.category) === activeCategory);
   }, [allItems, search, activeCategory]);
 
   const grouped = useMemo(() => {
@@ -79,7 +86,6 @@ export default function Pantry() {
   const editMutation = useMutation({
     mutationFn: ({ id, quantity, unit }) => patch(`/api/v1/pantry/${id}`, { quantity, unit }),
     onSuccess: () => {
-      setEditingId(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
     },
@@ -98,16 +104,51 @@ export default function Pantry() {
     onError: () => showToast('Could not remove item. Please try again.'),
   });
 
-  // ── Edit inline helpers ───────────────────────────────────────────────────
-  function startEdit(item) {
-    setEditingId(item.id);
-    setEditDraft({ quantity: formatQty(item.quantity), unit: item.unit, category: capitalize(item.category) });
+  // ── Tile expand / stepper ─────────────────────────────────────────────────
+
+  function flushPendingSave() {
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      if (expandedId && expandedQtyRef.current !== null) {
+        editMutation.mutate({ id: expandedId, quantity: expandedQtyRef.current, unit: expandedUnitRef.current });
+      }
+    }
   }
 
-  function commitEdit(id) {
-    const q = parseFloat(editDraft.quantity);
-    if (isNaN(q) || q <= 0) { setEditingId(null); return; }
-    editMutation.mutate({ id, quantity: q, unit: editDraft.unit });
+  function handleTileClick(item) {
+    if (expandedId === item.id) { handleClose(); return; }
+    flushPendingSave();
+    const qty = parseFloat(item.quantity) || 0;
+    setExpandedId(item.id);
+    setExpandedQty(qty);
+    expandedQtyRef.current = qty;
+    expandedUnitRef.current = item.unit;
+  }
+
+  function handleClose() {
+    flushPendingSave();
+    setExpandedId(null);
+    expandedQtyRef.current = null;
+  }
+
+  function handleStep(itemId, delta) {
+    const newQty = Math.max(0, parseFloat(((expandedQtyRef.current ?? 0) + delta).toFixed(3)));
+    expandedQtyRef.current = newQty;
+    setExpandedQty(newQty);
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      editMutation.mutate({ id: itemId, quantity: newQty, unit: expandedUnitRef.current });
+    }, 600);
+  }
+
+  function handleInlineDelete(id) {
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = null;
+    setExpandedId(null);
+    expandedQtyRef.current = null;
+    deleteMutation.mutate(id);
   }
 
   // ── Add item callback (from AddItemScreen) ────────────────────────────────
@@ -131,7 +172,7 @@ export default function Pantry() {
 
   // ── Main view ─────────────────────────────────────────────────────────────
   return (
-    <div className="page page--relative">
+    <div className="page page--relative" onClick={() => { if (expandedId) handleClose(); }}>
       <div className="page-header">
         <h1 className="page-title">My pantry</h1>
         <span className="page-count">{pantryLoading ? '—' : allItems.length} items</span>
@@ -194,39 +235,54 @@ export default function Pantry() {
             <p className="cat-label">{cat}</p>
             <div className="ing-grid">
               {items.map(item => (
-                <div key={item.id} className={`ing-tile${editingId === item.id ? ' ing-tile--editing' : ''}`}>
-                  {editingId === item.id ? (
-                    <EditTile
-                      name={item.name}
-                      draft={editDraft}
-                      setDraft={setEditDraft}
-                      onSave={() => commitEdit(item.id)}
-                      onCancel={() => setEditingId(null)}
-                      saving={editMutation.isPending}
-                    />
+                <div
+                  key={item.id}
+                  className={`ing-tile${expandedId === item.id ? ' ing-tile--editing' : ''}`}
+                  onClick={e => { e.stopPropagation(); handleTileClick(item); }}
+                >
+                  {expandedId === item.id ? (
+                    <>
+                      <div className="expanded-top">
+                        <div className="expanded-top__info">
+                          <div className="ing-tile__emoji" aria-hidden="true" />
+                          <span className="expanded-top__name">{item.name}</span>
+                        </div>
+                        <button
+                          className="tile-delete-btn"
+                          onClick={e => { e.stopPropagation(); handleInlineDelete(item.id); }}
+                          aria-label={`Delete ${item.name}`}
+                        >
+                          <TrashIcon aria-hidden="true" />
+                        </button>
+                      </div>
+
+                      <div className="tile-stepper">
+                        <button
+                          className="tile-stepper__btn"
+                          onClick={e => { e.stopPropagation(); handleStep(item.id, -getStep(item.unit)); }}
+                          disabled={expandedQty <= 0}
+                          aria-label="Decrease quantity"
+                        >
+                          <MinusIcon aria-hidden="true" />
+                        </button>
+                        <span className="tile-stepper__val">{formatQty(expandedQty)} {item.unit}</span>
+                        <button
+                          className="tile-stepper__btn"
+                          onClick={e => { e.stopPropagation(); handleStep(item.id, getStep(item.unit)); }}
+                          aria-label="Increase quantity"
+                        >
+                          <PlusIcon aria-hidden="true" />
+                        </button>
+                      </div>
+
+                      <p className="expanded-hint">Changes save automatically · tap outside to close</p>
+                    </>
                   ) : (
                     <>
                       <div className="ing-tile__emoji" aria-hidden="true" />
                       <div className="ing-tile__body">
                         <div className="ing-tile__name">{item.name}</div>
                         <div className="ing-tile__qty">{formatQty(item.quantity)} {item.unit}</div>
-                      </div>
-                      <div className="ing-tile__actions">
-                        <button
-                          className="icon-btn"
-                          aria-label={`Edit ${item.name}`}
-                          onClick={() => startEdit(item)}
-                        >
-                          <PencilIcon aria-hidden="true" />
-                        </button>
-                        <button
-                          className="icon-btn icon-btn--danger"
-                          aria-label={`Remove ${item.name}`}
-                          onClick={() => deleteMutation.mutate(item.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <TrashIcon aria-hidden="true" />
-                        </button>
                       </div>
                     </>
                   )}
@@ -243,46 +299,6 @@ export default function Pantry() {
       </button>
 
       <div className="page-bottom" />
-    </div>
-  );
-}
-
-// ── Edit tile (inline quantity/unit editor) ───────────────────────────────────
-
-function EditTile({ name, draft, setDraft, onSave, onCancel, saving }) {
-  const unitOptions = UNITS_BY_CAT[draft.category] ?? ['g', 'ml', 'pcs'];
-
-  return (
-    <div className="ing-tile__edit">
-      <div className="ing-tile__edit-name">{name}</div>
-      <div className="ing-tile__edit-row">
-        <input
-          className="ing-tile__edit-qty"
-          type="number"
-          min="0"
-          value={draft.quantity}
-          onChange={e => setDraft(d => ({ ...d, quantity: e.target.value }))}
-          aria-label="Quantity"
-          autoFocus
-        />
-        <select
-          className="ing-tile__edit-unit"
-          value={draft.unit}
-          onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
-          aria-label="Unit"
-        >
-          {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-          {!unitOptions.includes(draft.unit) && (
-            <option value={draft.unit}>{draft.unit}</option>
-          )}
-        </select>
-        <button className="icon-btn icon-btn--edit-action" onClick={onSave} disabled={saving} aria-label="Save">
-          <CheckIcon aria-hidden="true" />
-        </button>
-        <button className="icon-btn icon-btn--edit-action" onClick={onCancel} disabled={saving} aria-label="Cancel">
-          <XIcon aria-hidden="true" />
-        </button>
-      </div>
     </div>
   );
 }
@@ -689,6 +705,7 @@ function capitalize(str = '') {
 
 function SearchIcon(props)     { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>; }
 function PlusIcon(props)       { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
+function MinusIcon(props)      { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
 function PlusCircleIcon(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>; }
 function ArrowLeftIcon(props)  { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>; }
 // eslint-disable-next-line no-unused-vars
@@ -697,5 +714,3 @@ function MicIcon(props)        { return <svg {...props} viewBox="0 0 24 24" fill
 function PencilIcon(props)     { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function TrashIcon(props)      { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>; }
 function CheckCircleIcon({ className, ...props }) { return <svg className={className} {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>; }
-function CheckIcon(props)      { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>; }
-function XIcon(props)          { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>; }

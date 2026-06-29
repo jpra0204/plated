@@ -1,13 +1,19 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 import TabBar from './components/TabBar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import PantrySyncModal from './components/PantrySyncModal.jsx';
 import Home from './pages/Home.jsx';
 import Chef from './pages/Chef.jsx';
 import Pantry from './pages/Pantry.jsx';
 import Saved from './pages/Saved.jsx';
 import Profile from './pages/Profile.jsx';
 import Auth from './pages/Auth.jsx';
+import useAuthStore from './stores/authStore.js';
+import usePantrySync from './hooks/usePantrySync.js';
+import { get } from './lib/api.js';
+import { queryKeys } from './lib/queryKeys.js';
 
 /**
  * App — root layout with a persistent bottom tab bar and React Router routes.
@@ -24,6 +30,7 @@ import Auth from './pages/Auth.jsx';
 export default function App() {
   return (
     <div className="app-shell">
+      <PantrySyncController />
       <main className="app-content">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -39,4 +46,23 @@ export default function App() {
       <TabBar />
     </div>
   );
+}
+
+/**
+ * Mounts at app root (not page-level) so the sync modal can trigger on any
+ * route — login, tab return, etc. Fetches pantry count to skip empty pantries.
+ */
+function PantrySyncController() {
+  const { token } = useAuthStore();
+  const { data: pantryData } = useQuery({
+    queryKey: queryKeys.pantry.list(),
+    queryFn: () => get('/api/v1/pantry'),
+    enabled: !!token,
+    staleTime: 60_000,
+  });
+  const pantryCount = pantryData?.items?.length ?? 0;
+  const { shouldShow, dismiss, mealLabel } = usePantrySync({ isAuthenticated: !!token, pantryCount });
+
+  if (!shouldShow) return null;
+  return <PantrySyncModal mealLabel={mealLabel} onClose={dismiss} />;
 }

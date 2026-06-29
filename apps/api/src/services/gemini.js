@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 
 // Status codes from the Gemini API that are safe to retry (transient failures).
 const RETRIABLE_CODES = new Set([429, 503]);
-const FALLBACK_MODEL = 'gemini-2.0-flash';
+const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;

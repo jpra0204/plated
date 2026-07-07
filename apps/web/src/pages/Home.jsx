@@ -1,23 +1,16 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import RecipeCard from '../components/RecipeCard.jsx';
-import Toast from '../components/Toast.jsx';
 import useAuthStore from '../stores/authStore.js';
-import { get, post } from '../lib/api.js';
+import { get } from '../lib/api.js';
 import { queryKeys } from '../lib/queryKeys.js';
 
 export default function Home() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { user, status, setIntendedDestination } = useAuthStore();
   const isAuthenticated = status === 'authenticated';
   const isLoadingAuth = status === 'loading';
-
-  const [toast, setToast] = useState({ visible: false, message: '' });
-  const [savedIds, setSavedIds] = useState(new Set());
-
-  const showToast = (message) => setToast({ visible: true, message });
 
   // ── Profile query — stats + greeting name (logged-in only) ────────────────
   const { data: profileData, isLoading: profileLoading } = useQuery({
@@ -59,33 +52,21 @@ export default function Home() {
     refetchOnWindowFocus: true,
   });
 
-  // ── Cook mutation ─────────────────────────────────────────────────────────
-  const cookMutation = useMutation({
-    mutationFn: (recipeId) => post('/api/v1/cook', { recipeId }),
-    onSuccess: (data) => {
-      const n = data.removedItems?.length ?? 0;
-      const msg = n > 0
-        ? `Cooked! Removed ${n} ingredient${n !== 1 ? 's' : ''} from your pantry.`
-        : 'Cooked! No pantry items to remove.';
-      showToast(msg);
-      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
-    },
-    onError: () => showToast('Something went wrong. Please try again.'),
+  // ── Saved recipe IDs — for saved indicator on suggestion rows ─────────────
+  // [ASSUMPTION]: We fetch the full saved list and build a Set of IDs so we can
+  // mark which suggestion/trending rows are already saved without a per-recipe
+  // API call. The saved list is already cached from the Saved screen.
+  const { data: savedListData } = useQuery({
+    queryKey: queryKeys.saved.list(),
+    queryFn: () => get('/api/v1/saved'),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
   });
 
-  // ── Save mutation ─────────────────────────────────────────────────────────
-  const saveMutation = useMutation({
-    mutationFn: (recipeId) => post('/api/v1/saved', { recipeId }),
-    onSuccess: (_data, recipeId) => {
-      setSavedIds(prev => new Set([...prev, recipeId]));
-      showToast('Saved to your recipes');
-      queryClient.invalidateQueries({ queryKey: queryKeys.saved.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
-    },
-    onError: () => showToast('Could not save recipe. Please try again.'),
-  });
+  const savedRecipeIdSet = useMemo(
+    () => new Set((savedListData?.recipes ?? []).map(r => r.id)),
+    [savedListData],
+  );
 
   // ── Derived values ────────────────────────────────────────────────────────
 
@@ -110,33 +91,6 @@ export default function Home() {
     navigate('/auth');
   };
 
-  // Build per-recipe action list
-  const getActions = (recipe) => {
-    if (!isAuthenticated) {
-      return [
-        { label: 'Cook this', icon: ChefHatIcon, onClick: requireAuth, variant: 'primary' },
-        { label: 'Save',      icon: BookmarkIcon, onClick: requireAuth, variant: 'secondary' },
-      ];
-    }
-    const alreadySaved = savedIds.has(recipe.id);
-    return [
-      {
-        label: cookMutation.isPending ? 'Cooking…' : 'Cook this',
-        icon: ChefHatIcon,
-        onClick: () => cookMutation.mutate(recipe.id),
-        variant: 'primary',
-        disabled: cookMutation.isPending,
-      },
-      {
-        label: alreadySaved ? 'Saved' : 'Save',
-        icon: alreadySaved ? BookmarkFilledIcon : BookmarkIcon,
-        onClick: alreadySaved ? undefined : () => saveMutation.mutate(recipe.id),
-        variant: 'secondary',
-        disabled: alreadySaved || saveMutation.isPending,
-      },
-    ];
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -144,12 +98,6 @@ export default function Home() {
       <div className="page-header">
         <h1 className="page-title">{greetingFull}</h1>
       </div>
-
-      <Toast
-        message={toast.message}
-        visible={toast.visible}
-        onDismiss={() => setToast(t => ({ ...t, visible: false }))}
-      />
 
       {/* Hero card */}
       <div className="hero-card">
@@ -233,8 +181,8 @@ export default function Home() {
                 recipe={recipe}
                 showMatchPill={isAuthenticated}
                 showPantryTags={isAuthenticated}
-                note={!isAuthenticated ? 'Sign in to cook and save recipes' : undefined}
-                actions={getActions(recipe)}
+                onNavigate={() => navigate('/recipe/' + recipe.id)}
+                isSaved={isAuthenticated && savedRecipeIdSet.has(recipe.id)}
               />
             </div>
           ))}
@@ -315,22 +263,6 @@ function BookmarkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
-    </svg>
-  );
-}
-
-function BookmarkFilledIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
-    </svg>
-  );
-}
-
-function ChefHatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" />
     </svg>
   );
 }

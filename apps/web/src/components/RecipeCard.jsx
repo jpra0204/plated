@@ -1,10 +1,10 @@
- 
+
 import { useState } from 'react';
 import MatchBar from './MatchBar.jsx';
 import PantryTag from './PantryTag.jsx';
 
 /**
- * RecipeCard — collapsed list row that expands into a full detail card.
+ * RecipeCard — collapsed list row that optionally expands into a full detail card.
  *
  * Props:
  *   recipe         object  — recipe data
@@ -13,6 +13,9 @@ import PantryTag from './PantryTag.jsx';
  *   showMatchPill  bool    — show match pill in collapsed row
  *   showPantryTags bool    — show "In pantry"/"Missing" tags in expanded view
  *   note           string  — optional note rendered below CTA buttons
+ *   onNavigate     func    — if provided, clicking the collapsed row calls this
+ *                            instead of expanding inline (A2: Home → /recipe/:id)
+ *   isSaved        bool    — if true, show a filled-bookmark indicator on collapsed row
  */
 
 export default function RecipeCard({
@@ -22,10 +25,15 @@ export default function RecipeCard({
   showMatchPill = true,
   showPantryTags = true,
   note,
+  onNavigate,
+  isSaved,
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
-  if (expanded) {
+  // When onNavigate is provided, row click navigates; inline expand is bypassed.
+  const handleRowClick = onNavigate ?? (() => setExpanded(true));
+
+  if (expanded && !onNavigate) {
     return (
       <ExpandedCard
         recipe={recipe}
@@ -37,12 +45,19 @@ export default function RecipeCard({
     );
   }
 
-  return <CollapsedRow recipe={recipe} onExpand={() => setExpanded(true)} showMatchPill={showMatchPill} />;
+  return (
+    <CollapsedRow
+      recipe={recipe}
+      onExpand={handleRowClick}
+      showMatchPill={showMatchPill}
+      isSaved={isSaved}
+    />
+  );
 }
 
 // ── Collapsed row ─────────────────────────────────────────────────────────────
 
-function CollapsedRow({ recipe, onExpand, showMatchPill }) {
+function CollapsedRow({ recipe, onExpand, showMatchPill, isSaved }) {
   return (
     <div className="recipe-card__row" onClick={onExpand} role="button" tabIndex={0}
       onKeyDown={e => e.key === 'Enter' && onExpand()}
@@ -56,6 +71,8 @@ function CollapsedRow({ recipe, onExpand, showMatchPill }) {
           {recipe.cookTime} min · {recipe.difficulty}
         </div>
       </div>
+      {/* Non-interactive saved indicator — shown when recipe is in user's saved collection */}
+      {isSaved && <BookmarkFilledIcon className="saved-badge" aria-hidden="true" />}
       {showMatchPill && (
         <span className="recipe-card__match-pill">{recipe.matchPct}% match</span>
       )}
@@ -171,6 +188,14 @@ function AlertCircleIcon({ className, ...props }) {
   return (
     <svg className={className} {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+function BookmarkFilledIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
     </svg>
   );
 }

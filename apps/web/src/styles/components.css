@@ -856,6 +856,30 @@ div.form-input {
 .icon--amber { color: var(--color-match-low-bar); width: 16px; height: 16px; }
 .icon--primary { color: var(--color-primary); }
 
+/* ── Saved indicator badge (non-interactive filled bookmark) ─────────────────── */
+
+/* Shown on recipe rows/cards to indicate the recipe is already in the saved list.
+   pointer-events: none ensures it is not a tap target. */
+.saved-badge {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--color-primary);
+  pointer-events: none;
+  align-self: center;
+}
+
+/* In a recipe-card__row (Home suggestion list), give a small margin so it
+   doesn't crowd the match pill. */
+.recipe-card__row .saved-badge {
+  margin-right: 2px;
+}
+
+/* In a recipe-card__main (Saved list card body), align to the right edge. */
+.recipe-card__main .saved-badge {
+  margin-right: var(--space-3);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════════════════ */
@@ -1289,9 +1313,21 @@ div.form-input {
 .delete-confirm__prompt {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--color-error);
+  color: var(--color-primary);
   margin-bottom: var(--space-2);
   text-align: center;
+}
+
+/* ── Saved card swipe-to-delete confirm state ────────────────────────────────── */
+
+/* Inline confirm area inside the SavedCard when confirmDelete = true */
+.saved-card__confirm {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+/* Subtle border highlight while in confirming state */
+.saved-card--confirming {
+  border-color: var(--color-primary);
 }
 
 /* ── Ingredient rows ─────────────────────────────────────────────────────────── */

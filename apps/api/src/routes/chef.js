@@ -10,6 +10,7 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
 import { buildChefPrompt } from '../services/gemini.js';
+import { findCachedRecipe } from '../services/recipeCache.js';
 
 const tracer = trace.getTracer('plated-api');
 
@@ -60,6 +61,54 @@ router.post('/generate', async (req, res, next) => {
     });
 
     const previousRecipeIds = previousGenerations.map(g => g.recipe_id);
+
+    // ── Cache-first lookup ────────────────────────────────────────────────────
+    // Skip the cache on Retry (retryOf is set) or when Extra Notes are
+    // non-empty, matching the product spec exactly.
+    if (!retryOf && !filters.notes?.trim()) {
+      const cached = await findCachedRecipe(
+        db,
+        {
+          mealType:    filters.mealType,
+          cookTime:    filters.cookTime,
+          difficulty:  filters.difficulty,
+          cuisine:     filters.cuisine ?? null,
+          servings:    filters.servings,
+          preferences: preferences ?? {},
+        },
+        pantryItems,
+      );
+
+      if (cached) {
+        // Create a chef_generations row so that:
+        //  (a) generationId is valid for the /approve endpoint, and
+        //  (b) the cached recipe_id enters previousRecipeIds for future
+        //      Retries, preventing Gemini from re-generating the same dish.
+        const [newGeneration] = await db('chef_generations').insert({
+          user_id:         user.id,
+          recipe_id:       cached.recipe.id,
+          filters:         JSON.stringify(filters),
+          pantry_snapshot: JSON.stringify(pantryItems),
+          status:          'success',
+          retry_of:        null,
+        }).returning('*');
+
+        span.setAttribute('chef.cache_hit', true);
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+
+        return res.status(201).json({
+          generationId: newGeneration.id,
+          recipe: {
+            ...cached.recipe,
+            servings:    cached.servings,
+            ingredients: cached.ingredients,
+            steps:       cached.steps,
+          },
+        });
+      }
+    }
+    // ── End cache lookup ──────────────────────────────────────────────────────
 
     // Call Gemini.
     const generated = await buildChefPrompt({

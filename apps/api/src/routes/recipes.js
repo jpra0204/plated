@@ -140,21 +140,14 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: { message: 'Recipe not found.' } });
     }
 
-    if (!recipe.is_public) {
-      const user = await db('users').where({ firebase_uid: req.user.uid }).first();
-      if (!user) {
-        return res.status(401).json({ error: { message: 'User not registered. Call /auth/sync first.' } });
-      }
-      const saved = await db('saved_recipes')
-        .where({ user_id: user.id, recipe_id: recipe.id })
-        .whereNull('deleted_at')
-        .first();
-      if (!saved) {
-        return res.status(404).json({ error: { message: 'Recipe not found.' } });
-      }
+    const user = await db('users').where({ firebase_uid: req.user.uid }).first();
+    if (!user) {
+      return res.status(401).json({ error: { message: 'User not registered. Call /auth/sync first.' } });
     }
 
-    const [ingredients, steps] = await Promise.all([
+    // Fetch pantry items, ingredients, steps, and saved-recipe row in parallel
+    const [pantryItems, ingredients, steps, savedRow] = await Promise.all([
+      db('pantry_items').where({ user_id: user.id }).whereNull('deleted_at').select('name'),
       db('recipe_ingredients')
         .where({ recipe_id: recipe.id })
         .orderBy('sort_order')
@@ -163,9 +156,34 @@ router.get('/:id', async (req, res, next) => {
         .where({ recipe_id: recipe.id })
         .orderBy('step_number')
         .select('id', 'step_number', 'instruction'),
+      db('saved_recipes')
+        .where({ user_id: user.id, recipe_id: recipe.id })
+        .whereNull('deleted_at')
+        .first(),
     ]);
 
-    return res.json({ recipe: { ...recipe, ingredients, steps } });
+    // Private recipes are only accessible if the user has saved them
+    if (!recipe.is_public && !savedRow) {
+      return res.status(404).json({ error: { message: 'Recipe not found.' } });
+    }
+
+    const pantrySet = new Set(pantryItems.map(i => i.name.toLowerCase().trim()));
+
+    const ingredientsWithPantry = ingredients.map(ing => ({
+      ...ing,
+      in_pantry: pantrySet.has(ing.name.toLowerCase().trim()),
+    }));
+
+    return res.json({
+      recipe: {
+        ...recipe,
+        ingredients: ingredientsWithPantry,
+        steps,
+        is_saved: !!savedRow,
+        saved_id: savedRow?.id ?? null,
+        match_pct: calculateMatch(ingredients, pantryItems),
+      },
+    });
   } catch (err) {
     next(err);
   }

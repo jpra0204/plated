@@ -10,6 +10,7 @@ import Pantry from './pages/Pantry.jsx';
 import Saved from './pages/Saved.jsx';
 import Profile from './pages/Profile.jsx';
 import Auth from './pages/Auth.jsx';
+import RecipeDetail from './pages/RecipeDetail.jsx';
 import useAuthStore from './stores/authStore.js';
 import usePantrySync from './hooks/usePantrySync.js';
 import { get } from './lib/api.js';
@@ -34,9 +35,10 @@ export default function App() {
       <main className="app-content">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/chef"   element={<ProtectedRoute><Chef /></ProtectedRoute>} />
-          <Route path="/pantry" element={<ProtectedRoute><Pantry /></ProtectedRoute>} />
-          <Route path="/saved"  element={<ProtectedRoute><Saved /></ProtectedRoute>} />
+          <Route path="/chef"       element={<ProtectedRoute><Chef /></ProtectedRoute>} />
+          <Route path="/pantry"     element={<ProtectedRoute><Pantry /></ProtectedRoute>} />
+          <Route path="/saved"      element={<ProtectedRoute><Saved /></ProtectedRoute>} />
+          <Route path="/recipe/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/auth"   element={<Auth />} />
           <Route path="*"       element={<Navigate to="/" replace />} />

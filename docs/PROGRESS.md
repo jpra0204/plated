@@ -10,7 +10,7 @@
 
 | ID | Type | Step | Status | Notes |
 |---|---|---|---|---|
-| A1 | CLAUDE CODE | Recipe detail page (`/recipe/:id`) | pending | |
+| A1 | CLAUDE CODE | Recipe detail page (`/recipe/:id`) | done | Completed 2026-07-06 |
 | A2 | CLAUDE CODE | Migrate all recipe entry points to detail page | pending | depends on A1 |
 | A3 | CLAUDE CODE | Chef Approve → redirect to detail page | pending | depends on A1 |
 | A4 | CLAUDE CODE | Pantry header: remove count, add last-updated + Select | pending | |
@@ -39,4 +39,4 @@
 
 *(Updated automatically after each merged PR)*
 
-- None yet.
+- **A1** — Recipe detail page (`/recipe/:id`) — 2026-07-06

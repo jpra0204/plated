@@ -333,6 +333,55 @@ describe('GET /api/v1/recipes/:id', () => {
 
     await db('saved_recipes').where({ user_id: testUserId, recipe_id: recipePrivate.id }).del();
   });
+
+  it('includes in_pantry flag on each ingredient', async () => {
+    const res = await request(app)
+      .get(`/api/v1/recipes/${recipeA.id}`)
+      .set(AUTH);
+    expect(res.status).toBe(200);
+    const ings = res.body.recipe.ingredients;
+    const eggs = ings.find(i => i.name === 'Eggs');
+    const milk = ings.find(i => i.name === 'Milk');
+    const butter = ings.find(i => i.name === 'Butter');
+    // Pantry has Eggs and Milk, not Butter
+    expect(eggs.in_pantry).toBe(true);
+    expect(milk.in_pantry).toBe(true);
+    expect(butter.in_pantry).toBe(false);
+  });
+
+  it('includes match_pct in the response (2/3 of recipeA in pantry = 67)', async () => {
+    const res = await request(app)
+      .get(`/api/v1/recipes/${recipeA.id}`)
+      .set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.recipe).toHaveProperty('match_pct');
+    expect(res.body.recipe.match_pct).toBe(67);
+  });
+
+  it('includes is_saved=false and saved_id=null when recipe is not saved', async () => {
+    const res = await request(app)
+      .get(`/api/v1/recipes/${recipeA.id}`)
+      .set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.recipe.is_saved).toBe(false);
+    expect(res.body.recipe.saved_id).toBeNull();
+  });
+
+  it('includes is_saved=true and a saved_id when recipe is saved by this user', async () => {
+    const [savedRow] = await db('saved_recipes')
+      .insert({ user_id: testUserId, recipe_id: recipeA.id, is_chef_pick: false })
+      .onConflict(['user_id', 'recipe_id']).merge({ deleted_at: null })
+      .returning('*');
+
+    const res = await request(app)
+      .get(`/api/v1/recipes/${recipeA.id}`)
+      .set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.recipe.is_saved).toBe(true);
+    expect(res.body.recipe.saved_id).toBe(savedRow.id);
+
+    await db('saved_recipes').where({ id: savedRow.id }).del();
+  });
 });
 
 // ── calculateMatch (unit tests) ───────────────────────────────────────────────

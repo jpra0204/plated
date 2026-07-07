@@ -8,15 +8,15 @@ import { queryKeys } from '../lib/queryKeys.js';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, status, setIntendedDestination } = useAuthStore();
-  const isAuthenticated = status === 'authenticated';
-  const isLoadingAuth = status === 'loading';
+  // [ASSUMPTION]: Home is always rendered behind ProtectedRoute, so `user` is
+  // always set when this component mounts. `status` and `setIntendedDestination`
+  // are no longer needed here — the signed-out path is fully handled by ProtectedRoute.
+  const { user } = useAuthStore();
 
-  // ── Profile query — stats + greeting name (logged-in only) ────────────────
+  // ── Profile query — stats + greeting name ─────────────────────────────────
   const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: queryKeys.profile.root(),
     queryFn: () => get('/api/v1/profile'),
-    enabled: isAuthenticated,
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
@@ -24,7 +24,7 @@ export default function Home() {
   const pantryCount = profile?.pantryCount ?? 0;
   const savedCount = profile?.savedCount ?? null;
 
-  // ── Suggestions (logged-in only) ──────────────────────────────────────────
+  // ── Suggestions ───────────────────────────────────────────────────────────
   const {
     data: suggestionsData,
     isLoading: suggestionsLoading,
@@ -33,33 +33,17 @@ export default function Home() {
   } = useQuery({
     queryKey: queryKeys.recipes.suggestions(),
     queryFn: () => get('/api/v1/recipes/suggestions'),
-    enabled: isAuthenticated,
     staleTime: 0,           // always refetch on Home tab visit
-    refetchOnWindowFocus: true,
-  });
-
-  // ── Trending (logged-out only) ────────────────────────────────────────────
-  const {
-    data: trendingData,
-    isLoading: trendingLoading,
-    isError: trendingError,
-    refetch: refetchTrending,
-  } = useQuery({
-    queryKey: queryKeys.recipes.trending(),
-    queryFn: () => get('/api/v1/recipes/trending'),
-    enabled: !isAuthenticated && !isLoadingAuth,
-    staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   // ── Saved recipe IDs — for saved indicator on suggestion rows ─────────────
   // [ASSUMPTION]: We fetch the full saved list and build a Set of IDs so we can
-  // mark which suggestion/trending rows are already saved without a per-recipe
-  // API call. The saved list is already cached from the Saved screen.
+  // mark which suggestion rows are already saved without a per-recipe API call.
+  // The saved list is already cached from the Saved screen.
   const { data: savedListData } = useQuery({
     queryKey: queryKeys.saved.list(),
     queryFn: () => get('/api/v1/saved'),
-    enabled: isAuthenticated,
     staleTime: 30_000,
   });
 
@@ -74,22 +58,10 @@ export default function Home() {
   const firstName = user?.displayName?.split(' ')[0] ?? profile?.displayName?.split(' ')[0] ?? null;
   const greetingFull = firstName ? `${greeting}, ${firstName}` : greeting;
 
-  const rawRecipes = (isAuthenticated ? suggestionsData?.recipes : trendingData?.recipes) ?? [];
-  const recipes = rawRecipes.slice(0, 5).map(normalizeRecipe);
-
-  const isRecipesLoading = isAuthenticated ? suggestionsLoading : trendingLoading;
-  const isRecipesError = isAuthenticated ? suggestionsError : trendingError;
-  const refetchRecipes = isAuthenticated ? refetchSuggestions : refetchTrending;
+  const recipes = (suggestionsData?.recipes ?? []).slice(0, 5).map(normalizeRecipe);
 
   // Show "add ingredients" prompt when profile is ready and pantry is empty
-  const showPantryEmptyPrompt = isAuthenticated && !profileLoading && profile && pantryCount === 0;
-
-  // ── Auth-gate helper ──────────────────────────────────────────────────────
-
-  const requireAuth = () => {
-    setIntendedDestination('/');
-    navigate('/auth');
-  };
+  const showPantryEmptyPrompt = !profileLoading && profile && pantryCount === 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -102,25 +74,16 @@ export default function Home() {
       {/* Hero card */}
       <div className="hero-card">
         <h2 className="hero-card__title">What can I cook today?</h2>
-        {isAuthenticated ? (
-          <>
-            <p className="hero-card__body">
-              {profileLoading
-                ? 'Loading your pantry…'
-                : pantryCount === 0
-                  ? 'Your pantry is empty. Add some ingredients to get started.'
-                  : `You have ${pantryCount} item${pantryCount !== 1 ? 's' : ''} in your pantry. Let Chef find something delicious.`}
-            </p>
-            <button className="hero-card__cta" onClick={() => navigate('/chef')}>
-              <SparklesIcon aria-hidden="true" /> Open Chef
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="hero-card__body">Create an account to start cooking with your pantry.</p>
-            <button className="hero-card__cta" onClick={requireAuth}>Get started</button>
-          </>
-        )}
+        <p className="hero-card__body">
+          {profileLoading
+            ? 'Loading your pantry…'
+            : pantryCount === 0
+              ? 'Your pantry is empty. Add some ingredients to get started.'
+              : `You have ${pantryCount} item${pantryCount !== 1 ? 's' : ''} in your pantry. Let Chef find something delicious.`}
+        </p>
+        <button className="hero-card__cta" onClick={() => navigate('/chef')}>
+          <SparklesIcon aria-hidden="true" /> Open Chef
+        </button>
       </div>
 
       {/* Stats row */}
@@ -128,36 +91,30 @@ export default function Home() {
         <div className="stat-card">
           <BasketIcon className="stat-card__icon" aria-hidden="true" />
           <span className="stat-card__val">
-            {isAuthenticated ? (profileLoading ? '—' : pantryCount) : '--'}
+            {profileLoading ? '—' : pantryCount}
           </span>
           <span className="stat-card__lbl">Pantry items</span>
-          {!isAuthenticated && (
-            <button className="stat-card__signin" onClick={requireAuth}>Sign in to track</button>
-          )}
         </div>
         <div className="stat-card">
           <BookmarkIcon className="stat-card__icon" aria-hidden="true" />
           <span className="stat-card__val">
-            {isAuthenticated ? (profileLoading ? '—' : (savedCount ?? '—')) : '--'}
+            {profileLoading ? '—' : (savedCount ?? '—')}
           </span>
           <span className="stat-card__lbl">Saved recipes</span>
-          {!isAuthenticated && (
-            <button className="stat-card__signin" onClick={requireAuth}>Sign in to track</button>
-          )}
         </div>
       </div>
 
       {/* Recipe section */}
-      <p className="section-label">{isAuthenticated ? 'Suggested for you' : 'Trending'}</p>
+      <p className="section-label">Suggested for you</p>
 
-      {isRecipesLoading ? (
+      {suggestionsLoading ? (
         <div className="suggestion-list">
           <SkeletonRows count={3} />
         </div>
-      ) : isRecipesError ? (
+      ) : suggestionsError ? (
         <div className="empty-state">
           <p>Couldn&apos;t load recipes.</p>
-          <button className="btn btn--secondary" onClick={() => refetchRecipes()}>Try again</button>
+          <button className="btn btn--secondary" onClick={() => refetchSuggestions()}>Try again</button>
         </div>
       ) : showPantryEmptyPrompt ? (
         <div className="empty-state">
@@ -166,11 +123,7 @@ export default function Home() {
         </div>
       ) : recipes.length === 0 ? (
         <div className="empty-state">
-          <p>
-            {isAuthenticated
-              ? 'No suggestions right now — try adding more pantry items.'
-              : 'No trending recipes right now.'}
-          </p>
+          <p>No suggestions right now — try adding more pantry items.</p>
         </div>
       ) : (
         <div className="suggestion-list">
@@ -179,10 +132,10 @@ export default function Home() {
               {idx > 0 && <div className="divider" />}
               <RecipeCard
                 recipe={recipe}
-                showMatchPill={isAuthenticated}
-                showPantryTags={isAuthenticated}
+                showMatchPill
+                showPantryTags
                 onNavigate={() => navigate('/recipe/' + recipe.id)}
-                isSaved={isAuthenticated && savedRecipeIdSet.has(recipe.id)}
+                isSaved={savedRecipeIdSet.has(recipe.id)}
               />
             </div>
           ))}

@@ -14,15 +14,15 @@
 | A2 | CLAUDE CODE | Migrate all recipe entry points to detail page | done | Completed 2026-07-06 |
 | A3 | CLAUDE CODE | Chef Approve → redirect to detail page | done | Completed 2026-07-06 |
 | A4 | CLAUDE CODE | Pantry header: remove count, add last-updated + Select | done | Completed 2026-07-06 |
-| A5a | CLAUDE CODE | Expiration tracking: generate shelf-life table for review | pending | |
-| A5b | YOU | Review and approve the shelf-life table | pending | depends on A5a — Claude stops and waits |
+| A5a | CLAUDE CODE | Expiration tracking: generate shelf-life table for review | done | Completed 2026-07-06 |
+| A5b | YOU | Review and approve the shelf-life table | blocked-on-you | Table ready — Pablo must review and approve values |
 | A5c | CLAUDE CODE | Expiration tracking: run migration + seed with approved values | pending | depends on A5b |
 | A6 | CLAUDE CODE | Home: pantry expiring-soon warning badge | pending | depends on A5c |
 | A7 | CLAUDE CODE | Pantry bulk delete (wire Select behavior) | pending | depends on A4 |
 | A8 | CLAUDE CODE | Recipe caching by filters (cache-first Chef generation) | pending | |
 | A9 | CLAUDE CODE | Chef: pantry freshness weighting in prompt | paused | depends on A5c — resume after Pablo reviews expiry data in practice |
 | A10 | CLAUDE CODE | Chef: "Surprise me" cuisine option | pending | |
-| A11 | CLAUDE CODE | Auth model rework (Home behind ProtectedRoute) | pending | |
+| A11 | CLAUDE CODE | Auth model rework (Home behind ProtectedRoute) | done | Completed 2026-07-06 |
 | A12 | YOU | Landing page — needs live session with Pablo for copy + design | pending | depends on A11 |
 
 ---
@@ -31,7 +31,7 @@
 
 *(Updated automatically by `/plated-run` — do not edit manually)*
 
-- None yet. Run `/plated-run` to begin.
+- **A5b** — Review and approve the shelf-life table. See the table in the conversation — edit any values you disagree with, then tell Claude "approved" (or paste corrections). A5c (migration + seed) will not run until you do.
 
 ---
 
@@ -43,3 +43,5 @@
 - **A2** — Migrate all recipe entry points to detail page — 2026-07-06
 - **A3** — Chef Approve → redirect to detail page — 2026-07-06
 - **A4** — Pantry header: remove count, add last-updated + Select — 2026-07-06
+- **A5a** — Expiration tracking: shelf-life table generated — 2026-07-06
+- **A11** — Auth model rework (Home behind ProtectedRoute) — 2026-07-06

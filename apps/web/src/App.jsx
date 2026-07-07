@@ -20,13 +20,15 @@ import { queryKeys } from './lib/queryKeys.js';
  * App — root layout with a persistent bottom tab bar and React Router routes.
  *
  * Route structure:
- *   /          → Home (public)
+ *   /home      → Home (protected — requires auth)
  *   /chef      → AI Chef (protected)
  *   /pantry    → Pantry manager (protected)
  *   /saved     → Saved recipes (protected)
+ *   /recipe/:id → Recipe detail (protected)
  *   /profile   → User profile & settings
  *   /auth      → Sign-in / sign-up (no tab bar)
- *   *          → Redirect to /
+ *   /          → (landing page — added in A12; for now falls through to catch-all)
+ *   *          → Redirect to /home
  */
 export default function App() {
   return (
@@ -34,14 +36,14 @@ export default function App() {
       <PantrySyncController />
       <main className="app-content">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/home"       element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/chef"       element={<ProtectedRoute><Chef /></ProtectedRoute>} />
           <Route path="/pantry"     element={<ProtectedRoute><Pantry /></ProtectedRoute>} />
           <Route path="/saved"      element={<ProtectedRoute><Saved /></ProtectedRoute>} />
           <Route path="/recipe/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/auth"   element={<Auth />} />
-          <Route path="*"       element={<Navigate to="/" replace />} />
+          <Route path="*"       element={<Navigate to="/home" replace />} />
         </Routes>
       </main>
 

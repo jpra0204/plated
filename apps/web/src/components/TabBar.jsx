@@ -19,7 +19,7 @@ export default function TabBar() {
   if (pathname === '/auth') return null;
 
   const tabs = [
-    { to: '/',        end: true,  label: 'Home',    icon: HomeIcon },
+    { to: '/home',    end: true,  label: 'Home',    icon: HomeIcon },
     { to: '/chef',              label: 'Chef',    icon: SparklesIcon },
     { to: '/pantry',            label: 'Pantry',  icon: BasketIcon },
     { to: '/saved',             label: 'Saved',   icon: BookmarkIcon },

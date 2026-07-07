@@ -94,7 +94,7 @@ export default function Auth() {
   }
 
   function afterAuth() {
-    const dest = intendedDestination ?? '/';
+    const dest = intendedDestination ?? '/home';
     setIntendedDestination(null);
     navigate(dest, { replace: true });
   }

@@ -226,6 +226,38 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
+// ── DELETE /bulk ──────────────────────────────────────────────────────────────
+// Must be declared before /:id to avoid route collision.
+
+router.delete('/bulk', async (req, res, next) => {
+  try {
+    const user = await getUser(req, res);
+    if (!user) return;
+
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: { message: 'ids must be a non-empty array.' } });
+    }
+
+    // [ASSUMPTION]: IDs that don't belong to this user or are already soft-deleted
+    // are silently ignored — the WHERE clause filters to only active, owned rows.
+    // This avoids leaking whether an item exists for another user.
+    await db.transaction(async trx => {
+      await trx('pantry_items')
+        .where({ user_id: user.id })
+        .whereIn('id', ids)
+        .whereNull('deleted_at')
+        .update({ deleted_at: trx.fn.now() });
+    });
+
+    await setLastPantryUpdate(db, user.id, 'delete');
+
+    return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── DELETE /:id ───────────────────────────────────────────────────────────────
 
 router.delete('/:id', async (req, res, next) => {

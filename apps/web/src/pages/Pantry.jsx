@@ -47,6 +47,13 @@ export default function Pantry() {
   const expandedUnitRef = useRef('');
   const saveTimerRef = useRef(null);
 
+  // ── Selection mode (A7 — bulk delete) ────────────────────────────────────────
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  // [ASSUMPTION]: bulkConfirm is an in-bar confirmation step (not a modal) so it
+  // doesn't block the rest of the UI and keeps the interaction lightweight.
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+
   const showToast = (message) => setToast({ visible: true, message });
 
   // ── Pantry query ──────────────────────────────────────────────────────────
@@ -106,6 +113,55 @@ export default function Pantry() {
     },
     onError: () => showToast('Could not remove item. Please try again.'),
   });
+
+  // ── Bulk delete mutation (A7) ────────────────────────────────────────────────
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids) => del('/api/v1/pantry/bulk', { ids }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.recipes.suggestions() });
+      exitSelectionMode();
+      showToast('Removed from pantry');
+    },
+    onError: () => showToast('Could not remove items. Please try again.'),
+  });
+
+  // ── Selection mode helpers (A7) ───────────────────────────────────────────────
+
+  function enterSelectionMode() {
+    flushPendingSave();
+    setExpandedId(null);
+    expandedQtyRef.current = null;
+    setSelectionMode(true);
+    setSelectedIds(new Set());
+    setBulkConfirm(false);
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkConfirm(false);
+  }
+
+  function toggleSelection(itemId, e) {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function handleBulkDeletePress() {
+    if (selectedIds.size === 0) return;
+    setBulkConfirm(true);
+  }
+
+  function confirmBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds));
+  }
 
   // ── Tile expand / stepper ─────────────────────────────────────────────────
 
@@ -175,17 +231,22 @@ export default function Pantry() {
 
   // ── Main view ─────────────────────────────────────────────────────────────
   return (
-    <div className="page page--relative" onClick={() => { if (expandedId) handleClose(); }}>
+    <div
+      className={`page page--relative${selectionMode ? ' page--selection-mode' : ''}`}
+      onClick={() => { if (expandedId && !selectionMode) handleClose(); }}
+    >
       <div className="page-header">
         <h1 className="page-title">My pantry</h1>
-        {/* "Select" entry point for bulk-delete — behavior wired in A7 */}
-        <button
-          className="select-link"
-          onClick={() => { /* wired in A7 */ }}
-          aria-label="Select pantry items"
-        >
-          Select
-        </button>
+        {/* "Select" link — hidden once selection mode is active (Cancel lives in the action bar) */}
+        {!selectionMode && (
+          <button
+            className="select-link"
+            onClick={enterSelectionMode}
+            aria-label="Select pantry items"
+          >
+            Select
+          </button>
+        )}
       </div>
       {lastUpdate && (
         <p className="last-updated-line">
@@ -249,69 +310,142 @@ export default function Pantry() {
           <div key={cat}>
             <p className="cat-label">{cat}</p>
             <div className="ing-grid">
-              {items.map(item => (
-                <div
-                  key={item.id}
-                  className={`ing-tile${expandedId === item.id ? ' ing-tile--editing' : ''}`}
-                  onClick={e => { e.stopPropagation(); handleTileClick(item); }}
-                >
-                  {expandedId === item.id ? (
-                    <>
-                      <div className="expanded-top">
-                        <div className="expanded-top__info">
-                          <div className="ing-tile__emoji" aria-hidden="true" />
-                          <span className="expanded-top__name">{item.name}</span>
-                        </div>
-                        <button
-                          className="tile-delete-btn"
-                          onClick={e => { e.stopPropagation(); handleInlineDelete(item.id); }}
-                          aria-label={`Delete ${item.name}`}
-                        >
-                          <TrashIcon aria-hidden="true" />
-                        </button>
+              {items.map(item => {
+                if (selectionMode) {
+                  const isSelected = selectedIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`ing-tile ing-tile--selectable${isSelected ? ' ing-tile--selected' : ''}`}
+                      onClick={e => toggleSelection(item.id, e)}
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={item.name}
+                    >
+                      <div className="ing-tile__checkbox" aria-hidden="true">
+                        {isSelected ? <CheckboxCheckedIcon /> : <CheckboxUncheckedIcon />}
                       </div>
-
-                      <div className="tile-stepper">
-                        <button
-                          className="tile-stepper__btn"
-                          onClick={e => { e.stopPropagation(); handleStep(item.id, -getStep(item.unit)); }}
-                          disabled={expandedQty <= 0}
-                          aria-label="Decrease quantity"
-                        >
-                          <MinusIcon aria-hidden="true" />
-                        </button>
-                        <span className="tile-stepper__val">{formatQty(expandedQty)} {item.unit}</span>
-                        <button
-                          className="tile-stepper__btn"
-                          onClick={e => { e.stopPropagation(); handleStep(item.id, getStep(item.unit)); }}
-                          aria-label="Increase quantity"
-                        >
-                          <PlusIcon aria-hidden="true" />
-                        </button>
-                      </div>
-
-                      <p className="expanded-hint">Changes save automatically · tap outside to close</p>
-                    </>
-                  ) : (
-                    <>
                       <div className="ing-tile__emoji" aria-hidden="true" />
                       <div className="ing-tile__body">
                         <div className="ing-tile__name">{item.name}</div>
                         <div className="ing-tile__qty">{formatQty(item.quantity)} {item.unit}</div>
                       </div>
-                    </>
-                  )}
-                </div>
-              ))}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`ing-tile${expandedId === item.id ? ' ing-tile--editing' : ''}`}
+                    onClick={e => { e.stopPropagation(); handleTileClick(item); }}
+                  >
+                    {expandedId === item.id ? (
+                      <>
+                        <div className="expanded-top">
+                          <div className="expanded-top__info">
+                            <div className="ing-tile__emoji" aria-hidden="true" />
+                            <span className="expanded-top__name">{item.name}</span>
+                          </div>
+                          <button
+                            className="tile-delete-btn"
+                            onClick={e => { e.stopPropagation(); handleInlineDelete(item.id); }}
+                            aria-label={`Delete ${item.name}`}
+                          >
+                            <TrashIcon aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        <div className="tile-stepper">
+                          <button
+                            className="tile-stepper__btn"
+                            onClick={e => { e.stopPropagation(); handleStep(item.id, -getStep(item.unit)); }}
+                            disabled={expandedQty <= 0}
+                            aria-label="Decrease quantity"
+                          >
+                            <MinusIcon aria-hidden="true" />
+                          </button>
+                          <span className="tile-stepper__val">{formatQty(expandedQty)} {item.unit}</span>
+                          <button
+                            className="tile-stepper__btn"
+                            onClick={e => { e.stopPropagation(); handleStep(item.id, getStep(item.unit)); }}
+                            aria-label="Increase quantity"
+                          >
+                            <PlusIcon aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        <p className="expanded-hint">Changes save automatically · tap outside to close</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="ing-tile__emoji" aria-hidden="true" />
+                        <div className="ing-tile__body">
+                          <div className="ing-tile__name">{item.name}</div>
+                          <div className="ing-tile__qty">{formatQty(item.quantity)} {item.unit}</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))
       )}
 
-      {/* FAB */}
-      <button className="fab" onClick={() => setView('add')} aria-label="Add ingredient">
-        <PlusIcon aria-hidden="true" />
-      </button>
+      {/* FAB — hidden during selection mode */}
+      {!selectionMode && (
+        <button className="fab" onClick={() => setView('add')} aria-label="Add ingredient">
+          <PlusIcon aria-hidden="true" />
+        </button>
+      )}
+
+      {/* Bulk action bar — docked above the tab bar during selection mode */}
+      {selectionMode && (
+        <div className="bulk-action-bar" role="toolbar" aria-label="Bulk delete actions">
+          {bulkConfirm ? (
+            <>
+              <p className="bulk-confirm__prompt">
+                Delete {selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''}?
+              </p>
+              <div className="bulk-action-bar__row">
+                <button
+                  className="btn btn--secondary"
+                  onClick={() => setBulkConfirm(false)}
+                  disabled={bulkDeleteMutation.isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn--danger btn--flex2"
+                  onClick={confirmBulkDelete}
+                  disabled={bulkDeleteMutation.isPending}
+                >
+                  {bulkDeleteMutation.isPending ? 'Deleting…' : 'Confirm'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="bulk-action-bar__row">
+              <button
+                className="btn btn--secondary"
+                onClick={exitSelectionMode}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn--danger btn--flex2"
+                onClick={handleBulkDeletePress}
+                disabled={selectedIds.size === 0}
+                aria-disabled={selectedIds.size === 0}
+              >
+                Delete ({selectedIds.size})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="page-bottom" />
     </div>
@@ -766,3 +900,6 @@ function MicIcon(props)        { return <svg {...props} viewBox="0 0 24 24" fill
 function PencilIcon(props)     { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function TrashIcon(props)      { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>; }
 function CheckCircleIcon({ className, ...props }) { return <svg className={className} {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>; }
+/* Checkbox icons for selection mode (A7) */
+function CheckboxCheckedIcon(props)   { return <svg {...props} viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="2" width="20" height="20" rx="5" /><polyline points="7 12 10.5 15.5 17 9" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>; }
+function CheckboxUncheckedIcon(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" /></svg>; }

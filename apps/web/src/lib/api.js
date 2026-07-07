@@ -109,6 +109,6 @@ export const post = (path, data, options) =>
 export const patch = (path, data, options) =>
   request(path, { method: 'PATCH', body: JSON.stringify(data), ...options });
 
-/** DELETE request */
-export const del = (path, options) =>
-  request(path, { method: 'DELETE', ...options });
+/** DELETE request (optionally with a JSON body for bulk operations) */
+export const del = (path, data, options) =>
+  request(path, { method: 'DELETE', ...(data ? { body: JSON.stringify(data) } : {}), ...options });

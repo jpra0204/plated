@@ -173,6 +173,87 @@ describe('PATCH /api/v1/pantry/:id', () => {
   });
 });
 
+// ── DELETE /bulk ──────────────────────────────────────────────────────────────
+
+describe('DELETE /api/v1/pantry/bulk', () => {
+  it('returns 401 when Authorization header is missing', async () => {
+    const item = await seedItem();
+    const res = await request(app)
+      .delete('/api/v1/pantry/bulk')
+      .send({ ids: [item.id] });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when ids is missing', async () => {
+    const res = await request(app)
+      .delete('/api/v1/pantry/bulk')
+      .set(AUTH)
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when ids is an empty array', async () => {
+    const res = await request(app)
+      .delete('/api/v1/pantry/bulk')
+      .set(AUTH)
+      .send({ ids: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it('soft-deletes all specified items and returns 204', async () => {
+    const item1 = await seedItem({ name: 'BulkItem A' });
+    const item2 = await seedItem({ name: 'BulkItem B' });
+    const item3 = await seedItem({ name: 'BulkItem C' }); // not in the request
+
+    const res = await request(app)
+      .delete('/api/v1/pantry/bulk')
+      .set(AUTH)
+      .send({ ids: [item1.id, item2.id] });
+    expect(res.status).toBe(204);
+
+    const deleted = await db('pantry_items').whereIn('id', [item1.id, item2.id]).select();
+    expect(deleted.every(r => r.deleted_at !== null)).toBe(true);
+
+    // item3 must remain untouched
+    const untouched = await db('pantry_items').where({ id: item3.id }).first();
+    expect(untouched.deleted_at).toBeNull();
+  });
+
+  it('silently ignores IDs belonging to another user', async () => {
+    const [otherUser] = await db('users')
+      .insert({ firebase_uid: 'other-uid-bulk-del', email: 'other-bulk-del@plated.test' })
+      .onConflict('firebase_uid').merge(['email'])
+      .returning('*');
+    const [otherItem] = await db('pantry_items')
+      .insert({ user_id: otherUser.id, name: 'OtherBulk', category: 'produce', quantity: 1, unit: 'pcs' })
+      .returning('*');
+
+    const res = await request(app)
+      .delete('/api/v1/pantry/bulk')
+      .set(AUTH)
+      .send({ ids: [otherItem.id] });
+    expect(res.status).toBe(204); // no error — just a no-op
+
+    const row = await db('pantry_items').where({ id: otherItem.id }).first();
+    expect(row.deleted_at).toBeNull();
+
+    await db('pantry_items').where({ id: otherItem.id }).del();
+    await db('users').where({ id: otherUser.id }).del();
+  });
+
+  it('updates last_pantry_update with type: delete', async () => {
+    const item = await seedItem({ name: 'LastUpdateTest' });
+    await request(app)
+      .delete('/api/v1/pantry/bulk')
+      .set(AUTH)
+      .send({ ids: [item.id] });
+
+    const user = await db('users').where({ id: testUserId }).first();
+    expect(user.last_pantry_update?.type).toBe('delete');
+    expect(user.last_pantry_update?.updated_at).toBeTruthy();
+  });
+});
+
 // ── DELETE /:id ───────────────────────────────────────────────────────────────
 
 describe('DELETE /api/v1/pantry/:id', () => {

@@ -63,7 +63,7 @@ router.get('/', async (req, res, next) => {
       .where({ user_id: user.id })
       .whereNull('deleted_at')
       .orderBy('added_at', 'desc')
-      .select('id', 'ingredient_id', 'name', 'category', 'quantity', 'unit', 'added_at', 'updated_at');
+      .select('id', 'ingredient_id', 'name', 'category', 'quantity', 'unit', 'expiry_date', 'added_at', 'updated_at');
 
     // Expose last_pantry_update so the Pantry screen can render "Last updated …".
     // The pg client auto-parses JSONB columns into objects; null when never set.
@@ -140,14 +140,36 @@ router.post('/bulk', async (req, res, next) => {
       }
     }
 
-    const rows = items.map(item => ({
-      user_id:       user.id,
-      ingredient_id: item.ingredient_id ?? null,
-      name:          item.name,
-      category:      item.category,
-      quantity:      item.quantity,
-      unit:          item.unit,
-    }));
+    // Look up shelf_life_days for all provided ingredient_ids in one query.
+    // [ASSUMPTION]: expiry_date is calculated as NOW() + shelf_life_days days (in JS),
+    // not via a DB expression, for simplicity. Slight skew (~ms) vs server clock is acceptable.
+    const ingredientIds = items.filter(i => i.ingredient_id).map(i => i.ingredient_id);
+    let shelfLifeMap = {};
+    if (ingredientIds.length > 0) {
+      const ings = await db('ingredients')
+        .whereIn('id', ingredientIds)
+        .select('id', 'shelf_life_days');
+      shelfLifeMap = Object.fromEntries(ings.map(i => [i.id, i.shelf_life_days]));
+    }
+
+    const rows = items.map(item => {
+      let expiryDate = null;
+      const sld = item.ingredient_id ? shelfLifeMap[item.ingredient_id] : null;
+      if (sld) {
+        const d = new Date();
+        d.setDate(d.getDate() + sld);
+        expiryDate = d.toISOString();
+      }
+      return {
+        user_id:       user.id,
+        ingredient_id: item.ingredient_id ?? null,
+        name:          item.name,
+        category:      item.category,
+        quantity:      item.quantity,
+        unit:          item.unit,
+        expiry_date:   expiryDate,
+      };
+    });
 
     const inserted = await db.transaction(trx => trx('pantry_items').insert(rows).returning('*'));
 
@@ -174,6 +196,21 @@ router.post('/', async (req, res, next) => {
     const user = await getUser(req, res);
     if (!user) return;
 
+    // Auto-calculate expiry_date from catalogue shelf_life_days when ingredient_id is provided.
+    // [ASSUMPTION]: expiry_date = NOW() + shelf_life_days days, computed in JS for simplicity.
+    let expiryDate = null;
+    if (ingredient_id) {
+      const ing = await db('ingredients')
+        .where({ id: ingredient_id })
+        .select('shelf_life_days')
+        .first();
+      if (ing?.shelf_life_days) {
+        const d = new Date();
+        d.setDate(d.getDate() + ing.shelf_life_days);
+        expiryDate = d.toISOString();
+      }
+    }
+
     const [item] = await db('pantry_items')
       .insert({
         user_id:       user.id,
@@ -182,6 +219,7 @@ router.post('/', async (req, res, next) => {
         category,
         quantity,
         unit,
+        expiry_date:   expiryDate,
       })
       .returning('*');
 
@@ -212,6 +250,8 @@ router.patch('/:id', async (req, res, next) => {
     const updates = { updated_at: db.fn.now() };
     if (req.body.quantity != null) updates.quantity = req.body.quantity;
     if (req.body.unit     != null) updates.unit     = req.body.unit;
+    // expiry_date can be set to null (to clear it), so check key presence not value.
+    if ('expiry_date' in req.body) updates.expiry_date = req.body.expiry_date ?? null;
 
     const [item] = await db('pantry_items')
       .where({ id: req.params.id })

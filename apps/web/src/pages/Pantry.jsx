@@ -43,6 +43,8 @@ export default function Pantry() {
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [expandedId, setExpandedId] = useState(null);
   const [expandedQty, setExpandedQty] = useState(0);
+  // expiry_date for the currently expanded tile — ISO string or null
+  const [expandedExpiry, setExpandedExpiry] = useState(null);
   const expandedQtyRef = useRef(null);
   const expandedUnitRef = useRef('');
   const saveTimerRef = useRef(null);
@@ -94,7 +96,14 @@ export default function Pantry() {
 
   // ── Edit mutation ─────────────────────────────────────────────────────────
   const editMutation = useMutation({
-    mutationFn: ({ id, quantity, unit }) => patch(`/api/v1/pantry/${id}`, { quantity, unit }),
+    mutationFn: ({ id, quantity, unit, expiry_date }) => {
+      const body = {};
+      if (quantity != null) body.quantity = quantity;
+      if (unit     != null) body.unit     = unit;
+      // expiry_date may be explicitly null (to clear) — send only when key present.
+      if (expiry_date !== undefined) body.expiry_date = expiry_date;
+      return patch(`/api/v1/pantry/${id}`, body);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.pantry.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
@@ -181,6 +190,7 @@ export default function Pantry() {
     const qty = parseFloat(item.quantity) || 0;
     setExpandedId(item.id);
     setExpandedQty(qty);
+    setExpandedExpiry(item.expiry_date ?? null);
     expandedQtyRef.current = qty;
     expandedUnitRef.current = item.unit;
   }
@@ -188,7 +198,21 @@ export default function Pantry() {
   function handleClose() {
     flushPendingSave();
     setExpandedId(null);
+    setExpandedExpiry(null);
     expandedQtyRef.current = null;
+  }
+
+  /**
+   * Save an expiry date change immediately (no debounce — single deliberate user action).
+   * dateInputValue is 'YYYY-MM-DD' from <input type="date">, or '' to clear.
+   *
+   * [ASSUMPTION]: expiry_date is stored as UTC midnight of the selected date.
+   * Using 'T00:00:00Z' so the date value is unambiguous regardless of client timezone.
+   */
+  function handleExpiryChange(itemId, dateInputValue) {
+    const newExpiry = dateInputValue ? new Date(dateInputValue + 'T00:00:00Z').toISOString() : null;
+    setExpandedExpiry(newExpiry);
+    editMutation.mutate({ id: itemId, expiry_date: newExpiry });
   }
 
   function handleStep(itemId, delta) {
@@ -375,6 +399,33 @@ export default function Pantry() {
                           </button>
                         </div>
 
+                        {/* Expiry date editor — shown in expanded state */}
+                        <div className="expiry-editor">
+                          <label className="expiry-editor__label" htmlFor={`expiry-${item.id}`}>
+                            Use by
+                          </label>
+                          <div className="expiry-editor__row">
+                            <input
+                              id={`expiry-${item.id}`}
+                              className="expiry-editor__input"
+                              type="date"
+                              value={toDateInputValue(expandedExpiry)}
+                              onChange={e => handleExpiryChange(item.id, e.target.value)}
+                              onClick={e => e.stopPropagation()}
+                              aria-label={`Expiry date for ${item.name}`}
+                            />
+                            {expandedExpiry && (
+                              <button
+                                className="expiry-editor__clear"
+                                onClick={e => { e.stopPropagation(); handleExpiryChange(item.id, ''); }}
+                                aria-label="Clear expiry date"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
                         <p className="expanded-hint">Changes save automatically · tap outside to close</p>
                       </>
                     ) : (
@@ -383,6 +434,17 @@ export default function Pantry() {
                         <div className="ing-tile__body">
                           <div className="ing-tile__name">{item.name}</div>
                           <div className="ing-tile__qty">{formatQty(item.quantity)} {item.unit}</div>
+                          {item.expiry_date && (
+                            <div
+                              className={`ing-tile__expiry${isExpiringSoon(item.expiry_date) ? ' ing-tile__expiry--warning' : ''}`}
+                              aria-label={formatExpiry(item.expiry_date)}
+                            >
+                              {isExpiringSoon(item.expiry_date) && (
+                                <WarningIcon className="ing-tile__expiry-icon" aria-hidden="true" />
+                              )}
+                              {formatExpiry(item.expiry_date)}
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
@@ -868,6 +930,63 @@ function timeAgo(dateStr) {
 }
 
 /**
+ * Return the number of whole days until expiryDate from now.
+ * Negative values mean the item has already expired.
+ * Returns null if expiryDate is falsy.
+ *
+ * @param {string|null} expiryDate - ISO 8601 timestamp
+ * @returns {number|null}
+ */
+function daysUntilExpiry(expiryDate) {
+  if (!expiryDate) return null;
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const diff = new Date(expiryDate).getTime() - Date.now();
+  return Math.floor(diff / msPerDay);
+}
+
+/**
+ * Format the expiry date into a human-readable countdown string shown on the tile.
+ *
+ * @param {string|null} expiryDate - ISO 8601 timestamp
+ * @returns {string|null}
+ */
+function formatExpiry(expiryDate) {
+  const days = daysUntilExpiry(expiryDate);
+  if (days === null) return null;
+  if (days < 0)  return 'Expired';
+  if (days === 0) return 'Expires today';
+  if (days === 1) return 'Expires in 1 day';
+  return `Expires in ${days} days`;
+}
+
+/**
+ * Returns true when the item is expiring within the 3-day warning threshold.
+ * Expired items (days < 0) are also considered "expiring soon" for amber styling.
+ *
+ * [ASSUMPTION]: "Expiring soon" threshold is 3 days, matching the spec.
+ *
+ * @param {string|null} expiryDate - ISO 8601 timestamp
+ * @returns {boolean}
+ */
+function isExpiringSoon(expiryDate) {
+  const days = daysUntilExpiry(expiryDate);
+  return days !== null && days <= 3;
+}
+
+/**
+ * Convert an ISO timestamp to a YYYY-MM-DD string for <input type="date">.
+ * Returns '' if expiryDate is falsy.
+ *
+ * @param {string|null} expiryDate - ISO 8601 timestamp
+ * @returns {string}
+ */
+function toDateInputValue(expiryDate) {
+  if (!expiryDate) return '';
+  // ISO strings start with YYYY-MM-DD — slice is safe.
+  return expiryDate.slice(0, 10);
+}
+
+/**
  * Format the last_pantry_update object into the display string shown below
  * the Pantry header: "Last updated: {label} · {time ago}"
  *
@@ -903,3 +1022,5 @@ function CheckCircleIcon({ className, ...props }) { return <svg className={class
 /* Checkbox icons for selection mode (A7) */
 function CheckboxCheckedIcon(props)   { return <svg {...props} viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="2" width="20" height="20" rx="5" /><polyline points="7 12 10.5 15.5 17 9" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>; }
 function CheckboxUncheckedIcon(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" /></svg>; }
+/* Warning icon for expiring-soon indicator on pantry tiles */
+function WarningIcon(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>; }

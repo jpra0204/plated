@@ -291,3 +291,57 @@ describe('DELETE /api/v1/pantry/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── Expiry date (A5c) ─────────────────────────────────────────────────────────
+
+describe('expiry_date on pantry items (A5c)', () => {
+  it('GET / returns expiry_date field on items', async () => {
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await seedItem({ name: 'Milk', expiry_date: futureDate });
+    const res = await request(app).get('/api/v1/pantry').set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.items[0]).toHaveProperty('expiry_date');
+    expect(new Date(res.body.items[0].expiry_date).getTime()).toBeCloseTo(new Date(futureDate).getTime(), -3);
+  });
+
+  it('GET / returns expiry_date as null when not set', async () => {
+    await seedItem({ name: 'Salt', expiry_date: null });
+    const res = await request(app).get('/api/v1/pantry').set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].expiry_date).toBeNull();
+  });
+
+  it('PATCH /:id can set expiry_date', async () => {
+    const item = await seedItem();
+    const futureDate = '2030-06-15T12:00:00.000Z'; // UTC noon avoids timezone-rollover edge cases
+    const res = await request(app)
+      .patch(`/api/v1/pantry/${item.id}`)
+      .set(AUTH)
+      .send({ expiry_date: futureDate });
+    expect(res.status).toBe(200);
+    expect(res.body.item.expiry_date).toBeTruthy();
+    // Use getUTCFullYear() to avoid local-timezone rollover on midnight dates.
+    expect(new Date(res.body.item.expiry_date).getUTCFullYear()).toBe(2030);
+  });
+
+  it('PATCH /:id can clear expiry_date by sending null', async () => {
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const item = await seedItem({ expiry_date: futureDate });
+    const res = await request(app)
+      .patch(`/api/v1/pantry/${item.id}`)
+      .set(AUTH)
+      .send({ expiry_date: null });
+    expect(res.status).toBe(200);
+    expect(res.body.item.expiry_date).toBeNull();
+  });
+
+  it('POST / without ingredient_id inserts with null expiry_date', async () => {
+    const res = await request(app)
+      .post('/api/v1/pantry')
+      .set(AUTH)
+      .send({ name: 'Mystery Herb', category: 'other', quantity: 1, unit: 'tsp' });
+    expect(res.status).toBe(201);
+    // No ingredient_id → expiry_date must be null (no shelf-life to calculate from).
+    expect(res.body.item.expiry_date).toBeNull();
+  });
+});

@@ -1011,6 +1011,25 @@ div.form-input {
   margin-top: 2px;
 }
 
+/* Expiring-soon warning line on the Pantry items stat card (A6).
+   Amber colour matches the pantry tile expiry warning (ing-tile__expiry--warning). */
+.stat-card__warning {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-2xs);
+  color: var(--color-match-low-text);
+  font-weight: 500;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.stat-card__warning-icon {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
 /* ── Recipe card (collapsed) ─────────────────────────────────────────────────── */
 
 .recipe-card {

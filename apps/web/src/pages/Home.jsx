@@ -6,6 +6,35 @@ import useAuthStore from '../stores/authStore.js';
 import { get } from '../lib/api.js';
 import { queryKeys } from '../lib/queryKeys.js';
 
+// ── Expiry helpers (A6) ───────────────────────────────────────────────────────
+
+/**
+ * Returns the number of whole days until expiryDate from now.
+ * Negative values mean the item has already expired.
+ *
+ * [ASSUMPTION]: Logic intentionally duplicated from Pantry.jsx rather than
+ * extracted to a shared utility, to keep the change minimal and self-contained.
+ * The threshold (≤3 days) matches A5c's isExpiringSoon exactly.
+ *
+ * @param {string} expiryDate - ISO 8601 timestamp
+ * @returns {number}
+ */
+function daysUntilExpiry(expiryDate) {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.floor((new Date(expiryDate).getTime() - Date.now()) / msPerDay);
+}
+
+/**
+ * Returns true when expiryDate is within the 3-day warning window (or already expired).
+ *
+ * @param {string|null} expiryDate - ISO 8601 timestamp or null
+ * @returns {boolean}
+ */
+function isExpiringSoon(expiryDate) {
+  if (!expiryDate) return false;
+  return daysUntilExpiry(expiryDate) <= 3;
+}
+
 export default function Home() {
   const navigate = useNavigate();
   // [ASSUMPTION]: Home is always rendered behind ProtectedRoute, so `user` is
@@ -36,6 +65,23 @@ export default function Home() {
     staleTime: 0,           // always refetch on Home tab visit
     refetchOnWindowFocus: true,
   });
+
+  // ── Pantry query — for expiring-soon count on the stat card (A6) ────────────
+  // [ASSUMPTION]: The pantry list is already fetched and cached by Pantry.jsx (same
+  // queryKey: queryKeys.pantry.list()), so this query will usually hit the React
+  // Query cache rather than making a new network request. It's safe to declare it
+  // here without concern for duplicate requests.
+  const { data: pantryData } = useQuery({
+    queryKey: queryKeys.pantry.list(),
+    queryFn: () => get('/api/v1/pantry'),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  const expiringSoonCount = useMemo(() => {
+    const items = pantryData?.items ?? [];
+    return items.filter(item => isExpiringSoon(item.expiry_date)).length;
+  }, [pantryData]);
 
   // ── Saved recipe IDs — for saved indicator on suggestion rows ─────────────
   // [ASSUMPTION]: We fetch the full saved list and build a Set of IDs so we can
@@ -94,6 +140,12 @@ export default function Home() {
             {profileLoading ? '—' : pantryCount}
           </span>
           <span className="stat-card__lbl">Pantry items</span>
+          {expiringSoonCount > 0 && (
+            <span className="stat-card__warning" aria-label={`${expiringSoonCount} item${expiringSoonCount !== 1 ? 's' : ''} expiring soon`}>
+              <WarningIcon className="stat-card__warning-icon" aria-hidden="true" />
+              {expiringSoonCount} item{expiringSoonCount !== 1 ? 's' : ''} expiring soon
+            </span>
+          )}
         </div>
         <div className="stat-card">
           <BookmarkIcon className="stat-card__icon" aria-hidden="true" />
@@ -216,6 +268,17 @@ function BookmarkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
+    </svg>
+  );
+}
+
+/* Warning icon — reused from Pantry.jsx for visual consistency (A6) */
+function WarningIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   );
 }

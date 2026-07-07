@@ -17,13 +17,13 @@
 | A5a | CLAUDE CODE | Expiration tracking: generate shelf-life table for review | done | Completed 2026-07-06 |
 | A5b | YOU | Review and approve the shelf-life table | done | Approved 2026-07-07 |
 | A5c | CLAUDE CODE | Expiration tracking: run migration + seed with approved values | done | Completed 2026-07-07 |
-| A6 | CLAUDE CODE | Home: pantry expiring-soon warning badge | pending | depends on A5c |
+| A6 | CLAUDE CODE | Home: pantry expiring-soon warning badge | done | Completed 2026-07-07 |
 | A7 | CLAUDE CODE | Pantry bulk delete (wire Select behavior) | done | Completed 2026-07-06 |
 | A8 | CLAUDE CODE | Recipe caching by filters (cache-first Chef generation) | done | Completed 2026-07-07 |
 | A9 | CLAUDE CODE | Chef: pantry freshness weighting in prompt | paused | depends on A5c — resume after Pablo reviews expiry data in practice |
 | A10 | CLAUDE CODE | Chef: "Surprise me" cuisine option | done | Completed 2026-07-07 |
 | A11 | CLAUDE CODE | Auth model rework (Home behind ProtectedRoute) | done | Completed 2026-07-06 |
-| A12 | YOU | Landing page — needs live session with Pablo for copy + design | pending | depends on A11 |
+| A12 | YOU | Landing page — needs live session with Pablo for copy + design | blocked-on-you | A11 done — needs Pablo for copy, screenshots, and design decisions |
 
 ---
 
@@ -31,7 +31,7 @@
 
 *(Updated automatically by `/plated-run` — do not edit manually)*
 
-- None currently blocked.
+- **A12** — Landing page needs a live session with you. Come prepared with: (1) a screenshot or two of the app to use as hero images, (2) the headline and subhead copy you want, (3) any section structure ideas. Once agreed, run `/plated-run` and Claude will scaffold the page.
 
 ---
 
@@ -48,5 +48,6 @@
 - **A8** — Recipe caching by filters (cache-first Chef generation) — 2026-07-07
 - **A5c** — Expiration tracking: migration + seed deployed — 2026-07-07
 - **A10** — Chef "Surprise me" cuisine option — 2026-07-07
+- **A6** — Home pantry expiring-soon warning badge — 2026-07-07
 - **A7** — Pantry bulk delete (Select mode wired) — 2026-07-06
 - **A11** — Auth model rework (Home behind ProtectedRoute) — 2026-07-06

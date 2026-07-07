@@ -64,7 +64,7 @@ router.post('/generate', async (req, res, next) => {
     // Load pantry + preferences + previous recipe IDs in parallel.
     const [pantryItems, preferences, previousGenerations] = await Promise.all([
       db('pantry_items').where({ user_id: user.id }).whereNull('deleted_at')
-        .select('name', 'quantity', 'unit', 'category'),
+        .select('name', 'quantity', 'unit', 'category', 'expiry_date'),
       db('dietary_preferences').where({ user_id: user.id }).first(),
       db('chef_generations').where({ user_id: user.id, status: 'success' }).whereNotNull('recipe_id')
         .select('recipe_id'),
@@ -126,9 +126,19 @@ router.post('/generate', async (req, res, next) => {
     }
     // ── End cache lookup ──────────────────────────────────────────────────────
 
+    // Compute days_until_expiry for freshness-weighting scaffold (A9).
+    // [ASSUMPTION]: Ceiling division so that an item expiring later today
+    // shows "0 days" (not -1). A negative value means the item has already expired.
+    const pantryItemsWithExpiry = pantryItems.map(item => ({
+      ...item,
+      days_until_expiry: item.expiry_date
+        ? Math.ceil((new Date(item.expiry_date) - new Date()) / 86400000)
+        : null,
+    }));
+
     // Call Gemini.
     const generated = await buildChefPrompt({
-      pantryItems,
+      pantryItems: pantryItemsWithExpiry,
       filters,
       preferences: preferences ?? {},
       previousRecipeIds,

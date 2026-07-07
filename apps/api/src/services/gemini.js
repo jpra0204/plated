@@ -52,7 +52,10 @@ async function generateContent(ai, model, contents) {
  * Build and send the Chef generation prompt.
  *
  * @param {object} params
- * @param {Array}  params.pantryItems        - User's active pantry items
+ * @param {Array}  params.pantryItems        - User's active pantry items; each item includes
+ *                                             { name, quantity, unit, category, expiry_date,
+ *                                               days_until_expiry: number|null } where
+ *                                             days_until_expiry is null when expiry is unknown
  * @param {object} params.filters            - { mealType, cookTime, difficulty, cuisine, servings, notes }
  * @param {object} params.preferences        - { vegetarian, glutenFree, highProtein }
  * @param {string[]} params.previousRecipeIds - Recipe IDs already seen this session
@@ -63,8 +66,14 @@ export async function buildChefPrompt({ pantryItems, filters, preferences, previ
 You are a recipe generator. Generate ONE recipe using primarily the ingredients listed.
 
 PANTRY INGREDIENTS:
-${pantryItems.map(i => `- ${i.name} (${i.quantity} ${i.unit})`).join('\n')}
-
+${pantryItems.map(i => `- ${i.name} (${i.quantity} ${i.unit}${i.days_until_expiry != null ? `, expires in ${i.days_until_expiry} day${i.days_until_expiry === 1 ? '' : 's'}` : ''})`).join('\n')}
+${
+  // TODO: Pablo to provide freshness-weighting prompt language
+  // days_until_expiry is now available per pantry item above (null when unknown).
+  // When ready, add Gemini instructions here for how to prioritise
+  // ingredients closer to expiry when selecting what to cook.
+  ''
+}
 REQUIREMENTS:
 - Meal type: ${filters.mealType}
 - Cook time: ${filters.cookTime}

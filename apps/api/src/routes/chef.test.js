@@ -223,6 +223,146 @@ describe('POST /api/v1/chef/generate', () => {
       .send({ filters: VALID_FILTERS });
     expect(res.status).toBe(502);
   });
+
+  // ── Cache-first behaviour ────────────────────────────────────────────────────
+  // These tests use cuisines that are unlikely to collide with VALID_FILTERS
+  // ('French') so seeded cache recipes do not bleed into approve-test
+  // beforeEach generate calls.
+
+  it('always calls Gemini when retryOf is set (Retry bypasses cache)', async () => {
+    // Use a test-specific cuisine so this recipe does not match VALID_FILTERS.
+    const RETRY_CUISINE = 'TestCacheRetry';
+    const [cacheRecipe] = await db('recipes').insert({
+      name:           'Cache Retry Bypass Fixture',
+      source:         'chef_ai',
+      meal_type:      'lunch',
+      cuisine:        RETRY_CUISINE.toLowerCase(),
+      difficulty:     'easy',
+      cook_time_mins: 20,
+      servings:       2,
+      is_public:      true,
+    }).returning('*');
+
+    mockBuildChefPrompt.mockClear();
+
+    const retryFilters = { ...VALID_FILTERS, cuisine: RETRY_CUISINE };
+
+    const first = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: retryFilters });
+    const firstGenId = first.body.generationId;
+
+    mockBuildChefPrompt.mockClear();
+
+    // Retry: should always call Gemini, never hit the cache.
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: retryFilters, retryOf: firstGenId });
+
+    expect(res.status).toBe(201);
+    expect(mockBuildChefPrompt).toHaveBeenCalledOnce();
+    // No explicit cleanup here — afterAll deletes all testUserId generations +
+    // their referenced recipes (including cacheRecipe) in a single batch
+    // statement that avoids self-referential FK issues.
+  });
+
+  it('always calls Gemini when Extra Notes are non-empty', async () => {
+    // Use a test-specific cuisine so this recipe does not match VALID_FILTERS.
+    const NOTES_CUISINE = 'TestCacheNotesBypass';
+    const [cacheRecipe] = await db('recipes').insert({
+      name:           'Cache Notes Bypass Fixture',
+      source:         'chef_ai',
+      meal_type:      'lunch',
+      cuisine:        NOTES_CUISINE.toLowerCase(),
+      difficulty:     'easy',
+      cook_time_mins: 20,
+      servings:       2,
+      is_public:      true,
+    }).returning('*');
+
+    mockBuildChefPrompt.mockClear();
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: NOTES_CUISINE, notes: 'make it spicy' } });
+
+    expect(res.status).toBe(201);
+    // Gemini must have been called because notes were non-empty.
+    expect(mockBuildChefPrompt).toHaveBeenCalledOnce();
+
+    // No generation points to cacheRecipe (cache was bypassed), so it can be
+    // deleted immediately without FK complications.
+    await db('recipes').where({ id: cacheRecipe.id }).del();
+  });
+
+  it('resolves "surprise" cuisine to a concrete cuisine before calling Gemini', async () => {
+    mockBuildChefPrompt.mockClear();
+
+    // Use non-empty notes to force a Gemini call and bypass the cache, so we
+    // can inspect the filters actually passed to buildChefPrompt.
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: 'surprise', notes: 'force-gemini-surprise' } });
+
+    expect(res.status).toBe(201);
+    expect(mockBuildChefPrompt).toHaveBeenCalledOnce();
+    const { filters: calledFilters } = mockBuildChefPrompt.mock.calls[0][0];
+    // The cuisine must be resolved to a concrete value — never 'surprise'.
+    expect(calledFilters.cuisine).not.toBe('surprise');
+    expect(typeof calledFilters.cuisine).toBe('string');
+    expect(calledFilters.cuisine.length).toBeGreaterThan(0);
+  });
+
+  it('returns a cached recipe (no Gemini call) when a matching public recipe exists', async () => {
+    // Use a test-specific cuisine so this recipe does not match VALID_FILTERS.
+    const HIT_CUISINE = 'TestCacheHit';
+
+    const [cacheRecipe] = await db('recipes').insert({
+      name:           'Cache Hit Fixture Pasta',
+      source:         'chef_ai',
+      meal_type:      'lunch',
+      cuisine:        HIT_CUISINE.toLowerCase(),
+      difficulty:     'easy',
+      cook_time_mins: 20,
+      servings:       2,
+      is_public:      true,
+    }).returning('*');
+
+    await db('recipe_ingredients').insert([
+      { recipe_id: cacheRecipe.id, name: 'Eggs',   quantity: 3,  unit: 'pcs', sort_order: 1 },
+      { recipe_id: cacheRecipe.id, name: 'Butter', quantity: 10, unit: 'g',   sort_order: 2 },
+    ]);
+    await db('recipe_steps').insert([
+      { recipe_id: cacheRecipe.id, step_number: 1, instruction: 'Cache step one.' },
+    ]);
+
+    mockBuildChefPrompt.mockClear();
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: HIT_CUISINE, notes: '' } });
+
+    expect(res.status).toBe(201);
+    // Gemini should NOT have been called — cache hit.
+    expect(mockBuildChefPrompt).not.toHaveBeenCalled();
+    expect(res.body).toHaveProperty('generationId');
+    expect(res.body.recipe.id).toBe(cacheRecipe.id);
+    expect(res.body.recipe.ingredients).toHaveLength(2);
+    expect(res.body.recipe.steps).toHaveLength(1);
+
+    // Generation row should be persisted pointing to the cached recipe.
+    const gen = await db('chef_generations').where({ id: res.body.generationId }).first();
+    expect(gen.recipe_id).toBe(cacheRecipe.id);
+    expect(gen.status).toBe('success');
+
+    // Let afterAll handle the full cascade cleanup (generations → steps →
+    // ingredients → recipes) using its batch delete which avoids FK issues.
+  });
 });
 
 // ── POST /:generationId/approve ───────────────────────────────────────────────

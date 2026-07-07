@@ -14,6 +14,14 @@ import { findCachedRecipe } from '../services/recipeCache.js';
 
 const tracer = trace.getTracer('plated-api');
 
+// [ASSUMPTION]: This list mirrors the frontend CUISINES array, excluding the
+// empty "no preference" entry and the 'surprise' sentinel. Random selection is
+// uniform across all entries (no weighting). Update both lists together if new
+// cuisines are added.
+const CUISINE_LIST = [
+  'Italian', 'Mediterranean', 'Asian', 'Mexican', 'French', 'Indian', 'Middle Eastern',
+];
+
 const router = Router();
 router.use(verifyFirebaseToken);
 
@@ -36,13 +44,21 @@ router.post('/generate', async (req, res, next) => {
     const user = await getUser(req, res);
     if (!user) { span.end(); return; }
 
-    const { filters = {}, retryOf = null } = req.body;
+    let { filters = {}, retryOf = null } = req.body;
 
     if (!filters.mealType || !filters.cookTime || !filters.difficulty || filters.servings == null) {
       span.end();
       return res.status(400).json({
         error: { message: 'filters.mealType, filters.cookTime, filters.difficulty, and filters.servings are required.' },
       });
+    }
+
+    // Resolve 'surprise' → a uniformly random concrete cuisine before cache
+    // lookup and Gemini prompt construction. All downstream logic (cache query,
+    // prompt building, recipe storage) then uses the resolved value.
+    if (filters.cuisine === 'surprise') {
+      const randomCuisine = CUISINE_LIST[Math.floor(Math.random() * CUISINE_LIST.length)];
+      filters = { ...filters, cuisine: randomCuisine };
     }
 
     // Load pantry + preferences + previous recipe IDs in parallel.

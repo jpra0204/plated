@@ -16,8 +16,12 @@ import { queryKeys } from '../lib/queryKeys.js';
 const MEAL_TYPES   = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 const COOK_TIMES   = ['Under 15 min', '30 min', '1 hr+'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
+// [ASSUMPTION]: 'surprise' is a sentinel value — the first option shown in the
+// dropdown. When selected, the frontend sends cuisine: 'surprise' and the backend
+// resolves it to a uniformly random concrete cuisine. The empty string '' remains
+// the "no preference" option (shown as "Select a cuisine…").
 const CUISINES = [
-  '', 'Italian', 'Mediterranean', 'Asian', 'Mexican', 'French', 'Indian', 'Middle Eastern',
+  'surprise', '', 'Italian', 'Mediterranean', 'Asian', 'Mexican', 'French', 'Indian', 'Middle Eastern',
 ];
 
 export default function Chef() {
@@ -196,7 +200,9 @@ function InputState({ filters, setFilter, pantryCount, onSubmit }) {
           aria-label="Cuisine"
         >
           {CUISINES.map(c => (
-            <option key={c} value={c}>{c || 'Select a cuisine…'}</option>
+            <option key={c} value={c}>
+              {c === 'surprise' ? 'Surprise me — pick for me' : (c || 'Select a cuisine…')}
+            </option>
           ))}
         </select>
       </div>

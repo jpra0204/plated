@@ -67,10 +67,19 @@ router.post('/', async (req, res, next) => {
           .update({ deleted_at: trx.fn.now() });
       }
 
-      // Increment cooked_count.
+      // Increment cooked_count and record the last pantry update type.
       const [updatedUser] = await trx('users')
         .where({ id: user.id })
-        .increment('cooked_count', 1)
+        .update({
+          cooked_count: trx.raw('cooked_count + 1'),
+          // [ASSUMPTION]: last_pantry_update is set inside the same transaction so
+          // a partial failure rolls back both cooked_count and the update record.
+          last_pantry_update: JSON.stringify({
+            type: 'cook',
+            recipe_name: recipe.name,
+            updated_at: new Date().toISOString(),
+          }),
+        })
         .returning('cooked_count');
 
       return {

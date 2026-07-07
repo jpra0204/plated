@@ -21,6 +21,27 @@ const tracer = trace.getTracer('plated-api');
 const router = Router();
 router.use(verifyFirebaseToken);
 
+/**
+ * Write last_pantry_update on the users row.
+ * Called after every pantry mutation (add / edit / delete).
+ *
+ * @param {object} dbOrTrx - knex instance or active transaction
+ * @param {string} userId
+ * @param {'add'|'edit'|'delete'} type
+ */
+async function setLastPantryUpdate(dbOrTrx, userId, type) {
+  // [ASSUMPTION]: recipe_name is only meaningful for 'cook' type (set in cook.js).
+  // For add/edit/delete we only record the type and timestamp.
+  await dbOrTrx('users')
+    .where({ id: userId })
+    .update({
+      last_pantry_update: JSON.stringify({
+        type,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+}
+
 /** Resolve the DB user row from the Firebase UID on req.user. */
 async function getUser(req, res) {
   const user = await db('users').where({ firebase_uid: req.user.uid }).first();
@@ -44,7 +65,9 @@ router.get('/', async (req, res, next) => {
       .orderBy('added_at', 'desc')
       .select('id', 'ingredient_id', 'name', 'category', 'quantity', 'unit', 'added_at', 'updated_at');
 
-    return res.json({ items });
+    // Expose last_pantry_update so the Pantry screen can render "Last updated …".
+    // The pg client auto-parses JSONB columns into objects; null when never set.
+    return res.json({ items, lastPantryUpdate: user.last_pantry_update ?? null });
   } catch (err) {
     next(err);
   }
@@ -128,6 +151,8 @@ router.post('/bulk', async (req, res, next) => {
 
     const inserted = await db.transaction(trx => trx('pantry_items').insert(rows).returning('*'));
 
+    await setLastPantryUpdate(db, user.id, 'add');
+
     return res.status(201).json({ inserted: inserted.length, items: inserted });
   } catch (err) {
     next(err);
@@ -160,6 +185,8 @@ router.post('/', async (req, res, next) => {
       })
       .returning('*');
 
+    await setLastPantryUpdate(db, user.id, 'add');
+
     return res.status(201).json({ item });
   } catch (err) {
     next(err);
@@ -191,6 +218,8 @@ router.patch('/:id', async (req, res, next) => {
       .update(updates)
       .returning('*');
 
+    await setLastPantryUpdate(db, user.id, 'edit');
+
     return res.json({ item });
   } catch (err) {
     next(err);
@@ -216,6 +245,8 @@ router.delete('/:id', async (req, res, next) => {
     await db('pantry_items')
       .where({ id: req.params.id })
       .update({ deleted_at: db.fn.now() });
+
+    await setLastPantryUpdate(db, user.id, 'delete');
 
     return res.status(204).send();
   } catch (err) {

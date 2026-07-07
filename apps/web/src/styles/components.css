@@ -79,6 +79,25 @@ svg { display: block; flex-shrink: 0; }
   color: var(--color-text-secondary);
 }
 
+/* A4 — "Select" text link in Pantry header (bulk-delete entry point, wired in A7) */
+.select-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+}
+
+/* A4 — "Last updated …" line directly below the Pantry header row */
+.last-updated-line {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-top: calc(-1 * var(--space-4));
+  margin-bottom: var(--space-4);
+}
+
 .page-bottom { height: var(--space-8); }
 
 /* ── Tab bar ────────────────────────────────────────────────────────────────── */

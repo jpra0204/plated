@@ -38,18 +38,19 @@ router.get('/', async (req, res, next) => {
 
     return res.json({
       profile: {
-        id:          user.id,
-        firebaseUid: user.firebase_uid,
-        email:       user.email,
-        displayName: user.display_name,
-        city:        user.city,
-        roleLabel:   user.role_label,
-        avatarUrl:   user.avatar_url,
-        cookedCount: user.cooked_count,
-        createdAt:   user.created_at,
-        pantryCount: Number(pantryRow.n),
-        savedCount:  Number(savedRow.n),
-        preferences: preferences ? {
+        id:               user.id,
+        firebaseUid:      user.firebase_uid,
+        email:            user.email,
+        displayName:      user.display_name,
+        city:             user.city,
+        roleLabel:        user.role_label,
+        avatarUrl:        user.avatar_url,
+        cookedCount:      user.cooked_count,
+        createdAt:        user.created_at,
+        pantryCount:      Number(pantryRow.n),
+        savedCount:       Number(savedRow.n),
+        lastPantryUpdate: user.last_pantry_update ?? null,
+        preferences:      preferences ? {
           vegetarian:    preferences.vegetarian,
           glutenFree:    preferences.gluten_free,
           highProtein:   preferences.high_protein,

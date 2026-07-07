@@ -64,6 +64,9 @@ export default function Pantry() {
 
   const allItems = useMemo(() => pantryData?.items ?? [], [pantryData]);
 
+  // last_pantry_update is exposed on the GET /api/v1/pantry response (A4).
+  const lastUpdate = pantryData?.lastPantryUpdate ?? null;
+
   const filtered = useMemo(() => {
     const bySearch = search
       ? allItems.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
@@ -175,8 +178,20 @@ export default function Pantry() {
     <div className="page page--relative" onClick={() => { if (expandedId) handleClose(); }}>
       <div className="page-header">
         <h1 className="page-title">My pantry</h1>
-        <span className="page-count">{pantryLoading ? '—' : allItems.length} items</span>
+        {/* "Select" entry point for bulk-delete — behavior wired in A7 */}
+        <button
+          className="select-link"
+          onClick={() => { /* wired in A7 */ }}
+          aria-label="Select pantry items"
+        >
+          Select
+        </button>
       </div>
+      {lastUpdate && (
+        <p className="last-updated-line">
+          {formatLastUpdate(lastUpdate)}
+        </p>
+      )}
 
       <Toast
         message={toast.message}
@@ -699,6 +714,43 @@ function ManualTab() {
 
 function capitalize(str = '') {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+/**
+ * Return a human-readable relative time string for a UTC date string.
+ * e.g. "2h ago", "3m ago", "just now"
+ *
+ * @param {string} dateStr - ISO 8601 timestamp
+ * @returns {string}
+ */
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60)      return 'just now';
+  if (diff < 3600)    return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400)   return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+  return `${Math.floor(diff / 2592000)}mo ago`;
+}
+
+/**
+ * Format the last_pantry_update object into the display string shown below
+ * the Pantry header: "Last updated: {label} · {time ago}"
+ *
+ * @param {{ type: string, recipe_name?: string, updated_at: string }|null} update
+ * @returns {string|null}
+ */
+function formatLastUpdate(update) {
+  if (!update) return null;
+  const { type, recipe_name, updated_at } = update;
+  // [ASSUMPTION]: If recipe_name is missing on a 'cook' record, fall back to 'Cook this'.
+  const label =
+    type === 'cook'   ? (recipe_name || 'Cook this') :
+    type === 'add'    ? 'manual add'    :
+    type === 'edit'   ? 'manual edit'   :
+    type === 'delete' ? 'manual delete' :
+    type;
+  return `Last updated: ${label} · ${timeAgo(updated_at)}`;
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────

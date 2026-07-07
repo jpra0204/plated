@@ -1,571 +1,222 @@
-# Plated — Step-by-Step Build Plan
+# Plated — Phase A Build Plan (Pre-Launch Friend Release)
 
-> **How to use this:** Work top to bottom. Steps marked **[YOU]** require manual action in a browser or console. Steps marked **[CLAUDE CODE]** can be handed directly to Claude Code. Steps marked **[PARALLEL]** can be done at the same time as the previous track. Placeholder values that need replacing are marked `<!-- REPLACE: description -->`.
-
----
-
-## Phase 0 — Accounts & credentials
-> Do this first. Everything downstream depends on these credentials existing.
+> **How to use this:** This is the source of truth for Claude Code. Work top to bottom — steps are ordered by dependency, not arbitrarily. Steps marked **[CLAUDE CODE]** are ready to hand off directly. Steps marked **[YOU]** require Pablo's review or a manual decision before Claude Code proceeds. Where an assumption was made because it wasn't explicitly specified, it's flagged with **[ASSUMPTION]** — flag back if wrong, otherwise proceed as written.
+>
+> Reference existing project docs for context: `ARCHITECTURE.md`, `product-ux-acceptance-criteria.md`, `home-saved-profile-requirements.md`, and the current-state summary. Do not re-implement anything already listed as built in the current-state summary.
 
 ---
 
-### Step 0.1 — [YOU] Create a dedicated Google account for Plated
+## Ordering rationale
 
-Create a new Google account (e.g. `plated.app.dev@gmail.com`) to own all GCP and Firebase resources. Keep it separate from your personal account so billing, permissions, and project ownership are clean from day one.
-
----
-
-### Step 0.2 — [YOU] Create a GCP project
-
-1. Sign in at [console.cloud.google.com](https://console.cloud.google.com) with the new account
-2. Create a new project named `plated-dev`
-3. Note the **Project ID** (may differ from the name) — you'll use it throughout
-4. Enable billing (required for Cloud SQL and Cloud Run, even on free tier)
-
-> **Project ID to note:** `<!-- REPLACE: your GCP project ID, e.g. plated-dev-123456 -->`
+1. **Recipe detail page** comes first because Chef-approve, Home, and Saved all redirect into it — nothing downstream can be wired correctly until it exists.
+2. **Pantry expiration tracking** comes before **freshness weighting in the Chef prompt** and before the **Home expiring-soon badge**, since both read expiry data that doesn't exist yet.
+3. **Bulk delete** and **recipe caching** are independent of everything else and can slot in anywhere — placed after the pantry/detail-page work since they're lower urgency.
+4. **Auth model rework** must happen before **the landing page**, since the landing page's CTA routing depends on the new auth redirect logic.
 
 ---
 
-### Step 0.3 — [YOU] Create a Firebase project
+## A1 — Recipe detail page [CLAUDE CODE]
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) with the same Google account
-2. Click "Add project" → select the **existing** `plated-dev` GCP project (this links them)
-3. Enable Google Analytics if prompted (optional, skip for now)
-4. In Firebase console → Authentication → Get started → enable **Google** and **Email/Password** providers
-5. Go to Project Settings → General → note the **Firebase config object** (API key, auth domain, project ID)
+### Product requirements
+- New route: `/recipe/:id`
+- Full-screen page, tab bar remains visible (standard authenticated screen).
+- Header content: recipe name, cook time, difficulty, servings, Chef badge if `source === 'chef_ai'`.
+- **Save icon** — top-right corner of the page. Bookmark icon, filled state when the recipe is already saved for this user, outline/empty state when it isn't. Tapping toggles save/unsave immediately (optimistic update + toast).
+- Ingredient list — full list with "In pantry" / "Missing" tags, same visual style as existing expanded cards.
+- Numbered steps.
+- **"Cook this"** — the only other CTA on this page. Sticky button, fixed to the bottom of the screen, positioned *above* the tab bar (not overlapping it). Tapping it runs the existing cook logic (decrement pantry, increment cooked count, toast, invalidate queries).
+- This page must work in two contexts:
+  - **Unsaved recipe** (e.g. arriving from Home's Trending/Suggested before saving): save icon starts empty; tapping it saves.
+  - **Already-saved recipe** (arriving from Saved list, or from Chef after Approve): save icon starts filled.
+- No inline expand/collapse anywhere else — this page is the only place ingredients + steps are shown in full.
 
-> **Firebase config to note:**
-> ```
-> apiKey: <!-- REPLACE: Firebase API key -->
-> authDomain: <!-- REPLACE: e.g. plated-dev.firebaseapp.com -->
-> projectId: <!-- REPLACE: Firebase project ID -->
-> ```
-
----
-
-### Step 0.4 — [YOU] Enable GCP APIs
-
-In GCP console, enable these APIs (search each in the API Library):
-- Cloud Run API
-- Cloud SQL Admin API
-- Artifact Registry API
-- Secret Manager API
+### Prompt for Claude Code
+> "Create a new route `/recipe/:id` rendering a full recipe detail page. Fetch recipe data via `GET /api/v1/recipes/:id` (existing endpoint). Header shows name, cook time, difficulty, servings, and a Chef sparkles badge if the recipe's source is `chef_ai`. Add a bookmark icon button in the top-right of the header — filled if the recipe is in the user's saved collection, outline if not — tapping it calls the save/unsave mutation and updates optimistically with a toast. Below the header: ingredient list with in-pantry/missing tags, then numbered steps. Add a sticky 'Cook this' button fixed above the tab bar, calling the existing cook mutation, with the existing toast and query invalidation behavior. Use the visual style already established in the Saved and Home expanded-card components as the reference — do not introduce new visual patterns."
 
 ---
 
-## Phase 1 — Repo cleanup & monorepo scaffold
-> Claude Code handles this entirely. You just point it at the repo.
+## A2 — Migrate all recipe entry points to the detail page [CLAUDE CODE]
+
+### Product requirements
+- **Home** (both "Trending" and "Suggested for you" rows): tapping a row navigates to `/recipe/:id` instead of expanding inline. Remove the inline expanded-card component and its "Cook this"/"Save" buttons entirely from Home.
+- **Saved**: tapping a card's top zone navigates to `/recipe/:id` instead of expanding inline. Remove the inline expanded-card component and its "Cook this"/"Delete" buttons from Saved. (Delete still needs a home — see note below.)
+- **All recipe card list views** (Home rows, Saved cards): add a small **non-clickable saved indicator icon** (filled bookmark, no tap target) on cards that are already saved, so the user can tell at a glance without opening the detail page.
+- **Delete recipe** (previously a CTA inside Saved's expanded card): since the expanded card is gone, move this to a swipe-to-delete or an overflow/kebab menu on the Saved list card itself. **[ASSUMPTION]** Using swipe-to-delete with the existing inline confirm pattern ("Remove this recipe?") — flag if you'd prefer a different interaction.
+
+### Prompt for Claude Code
+> "Remove the inline expanded-card behavior from Home.jsx and Saved.jsx. Tapping any recipe row/card in either screen now navigates to `/recipe/:id` using React Router. Add a small filled-bookmark indicator icon (non-interactive) to any card that is already in the user's saved collection, in both Home and Saved list views. Since Saved's expanded card previously hosted the 'Delete' action, implement swipe-to-delete on the Saved list card with the existing inline confirmation copy ('Remove this recipe?' / Confirm / Cancel)."
 
 ---
 
-### Step 1.1 — [CLAUDE CODE] Wipe old code and scaffold monorepo
+## A3 — Chef "Approve" redirects to detail page [CLAUDE CODE]
 
-**Prompt Claude Code with:**
-> "I have an existing repo with old code from a previous app attempt. I need you to: delete everything except the `.git` folder and any existing GitHub Actions workflows, then scaffold a fresh npm workspaces monorepo with this structure:"
+### Product requirements
+- Chef's Result state keeps its current three buttons: **Approve**, **Retry**, **Adjust** — no change to that screen's behavior or layout.
+- Approve is still the moment the recipe is saved (as today) — this is intentional, so the user still has the option to Retry before committing.
+- After a successful Approve, instead of navigating to `/saved`, navigate to `/recipe/:id` for the newly approved recipe.
 
-```
-plated/
-├── apps/
-│   ├── web/          # Vite + React 18 — scaffold with: npm create vite@latest
-│   └── api/          # Node.js + Express — scaffold manually
-├── packages/
-│   ├── shared/       # empty package for now, just package.json
-│   └── ui/           # empty package for now, just package.json
-├── docs/             # paste ARCHITECTURE.md and product docs here
-├── docker-compose.yml
-├── .env.example      # root level
-├── .gitignore
-├── .eslintrc.js
-├── .prettierrc
-└── package.json      # root with workspaces config
-```
-
-Tell Claude Code to:
-- Set up npm workspaces in root `package.json`
-- Add `concurrently` as a dev dep at root for `npm run dev`
-- Add ESLint + Prettier configs at root
-- Write a root `.gitignore` that covers Node, Vite, `.env` files, and `dist/`
-- Write the `docker-compose.yml` per ARCHITECTURE.md Section 17
-- Leave `apps/web/src` and `apps/api/src` mostly empty — just entry points
+### Prompt for Claude Code
+> "Update the Chef screen's Approve action: after the approve mutation succeeds, navigate to `/recipe/:id` for the newly created recipe instead of navigating to `/saved`. No other changes to the Chef input/generating/result state logic."
 
 ---
 
-### Step 1.2 — [CLAUDE CODE] Set up apps/api skeleton
+## A4 — Pantry header: remove item count, add "last updated" + "Select" [CLAUDE CODE]
 
-**Prompt Claude Code with:**
-> "Scaffold the Express API in `apps/api/` with this structure. Do not implement route logic yet — just the skeleton with placeholder responses."
+### Product requirements
+- Remove the "N items" text currently shown top-right of the Pantry header.
+- Replace it with a **"Select"** text link in that same position, top-right of the header (entry point for bulk delete — see A7).
+- Directly below the header row, add a small text line using the **same typography as the old item counter**, reading:
+  - `Last updated: {Recipe Name} · {time ago}` — when the most recent pantry mutation was a "Cook this" action. Example: `Last updated: Shakshuka · 2h ago`
+  - `Last updated: manual add · {time ago}` — when the most recent mutation was adding an item (Voice, Manual, or later Scan)
+  - `Last updated: manual edit · {time ago}` — when the most recent mutation was editing a quantity
+  - `Last updated: manual delete · {time ago}` — when the most recent mutation was deleting an item (single or bulk)
+- This requires tracking the last mutation type + timestamp + (if applicable) recipe name at the user level. **[ASSUMPTION]** Store this as `last_pantry_update` JSONB on the `users` row (shape: `{ type: 'cook'|'add'|'edit'|'delete', recipe_name?: string, updated_at: timestamptz }`), updated on every relevant mutation. Flag if you'd rather this live elsewhere (e.g. its own table).
 
-```
-apps/api/
-├── src/
-│   ├── index.js           # Express app, imports telemetry first
-│   ├── telemetry.js       # OTel setup (full implementation per ARCHITECTURE.md)
-│   ├── middleware/
-│   │   ├── auth.js        # Firebase JWT verification skeleton
-│   │   ├── errorHandler.js
-│   │   └── requestLogger.js
-│   ├── routes/
-│   │   ├── auth.js        # POST /api/v1/auth/sync — placeholder 200
-│   │   ├── pantry.js      # placeholder routes
-│   │   ├── recipes.js     # placeholder routes
-│   │   ├── chef.js        # placeholder routes
-│   │   ├── saved.js       # placeholder routes
-│   │   └── profile.js     # placeholder routes
-│   ├── services/
-│   │   ├── gemini.js      # placeholder, exports buildChefPrompt and buildVoiceParsePrompt
-│   │   └── pantryMatch.js # full implementation — pure function, easy to test
-│   └── db/
-│       └── index.js       # Knex instance using DATABASE_URL from env
-├── db/
-│   ├── knexfile.js
-│   ├── migrations/        # empty for now
-│   └── seeds/             # empty for now
-├── .env.example
-└── package.json
-```
+### Prompt for Claude Code
+> "In the Pantry screen header, remove the '{n} items' text. In its place, add a 'Select' text link (this will later trigger bulk-delete mode — implement the UI now, wire the behavior in a later step). Below the header row, add a small text element matching the typography of the old item counter, showing 'Last updated: {label} · {time ago}' where label is the recipe name for cook-triggered updates, or one of 'manual add' / 'manual edit' / 'manual delete' for other pantry mutations. Add a `last_pantry_update` JSONB column to the `users` table via migration, shaped `{ type, recipe_name, updated_at }`. Update this column inside the existing cook, pantry add, pantry edit, and pantry delete endpoints. Expose it on `GET /api/v1/profile` (or `GET /api/v1/pantry`, whichever is already fetched on the Pantry screen) and render it with a relative-time formatter (e.g. '2h ago')."
 
 ---
 
-### Step 1.3 — [CLAUDE CODE] Set up apps/web skeleton
+## A5 — Pantry expiration tracking (MVP) [CLAUDE CODE + YOU checkpoint]
 
-**Prompt Claude Code with:**
-> "Set up the React frontend in `apps/web/` using Vite. Install React Router v6, Zustand, and TanStack Query. Create this folder structure with empty files — no logic yet."
+### Product requirements
+- Every ingredient in the catalogue gets a default shelf-life value (in days).
+- When a pantry item is added, its expiry date is auto-calculated as `added_at + shelf_life_days`.
+- The expiry date is **user-editable** — tapping into a pantry item's expanded/edit view (the existing tap-to-edit stepper interaction) should also expose an editable expiry date field.
+- The pantry tile shows a **visible countdown** at all times (not just when expanded) — e.g. "Expires in 3 days".
+- When an item is within the "expiring soon" window, show a **visual warning indicator** on the tile (e.g. amber tag/icon, consistent with the amber "Missing" tag styling already used elsewhere in the app for consistency).
+- **[ASSUMPTION]** "Expiring soon" threshold defaults to **3 days or fewer remaining**. Flag if you want a different number.
 
-```
-apps/web/src/
-├── main.jsx              # React root, wrap with QueryClientProvider + Router
-├── App.jsx               # Tab bar layout + route definitions (all 5 tabs)
-├── pages/
-│   ├── Home.jsx          # placeholder
-│   ├── Chef.jsx          # placeholder
-│   ├── Pantry.jsx        # placeholder
-│   ├── Saved.jsx         # placeholder
-│   ├── Profile.jsx       # placeholder
-│   └── Auth.jsx          # placeholder
-├── components/
-│   └── TabBar.jsx        # actual tab bar component — implement this now
-├── stores/
-│   ├── authStore.js      # Zustand auth store with shape from ARCHITECTURE.md
-│   └── pantryStore.js    # placeholder
-├── hooks/
-│   └── useVoiceInput.js  # placeholder
-└── lib/
-    └── api.js            # base fetch wrapper with auth header injection
-```
+### ⚠️ Review checkpoint — [YOU]
+Before Claude Code runs the migration/seed, it must first output a **reviewable list** (e.g. a markdown table or CSV) of every ingredient in the current catalogue with its proposed default shelf-life in days, grouped by category. Pablo reviews and edits this list before the seed is finalized. Do not seed the database until this list is approved.
+
+### Prompt for Claude Code
+> "First: generate a markdown table listing every ingredient currently in the `ingredients` catalogue, with a proposed `shelf_life_days` value for each, grouped by category (produce, dairy, grains, protein, legumes, other). Use general food-safety norms (e.g. garlic ~30 days, milk ~7 days, fresh herbs ~7 days, rice/dry grains ~365 days). Output this table and stop — do not write migrations or seed data yet. Wait for explicit approval on the values before proceeding.
+>
+> Once approved: add a `shelf_life_days` column to the `ingredients` table via migration, and update the seed file with the approved values. Add an `expiry_date` column to `pantry_items` (nullable timestamptz), auto-calculated as `added_at + shelf_life_days` on insert when the item resolves to a catalogue ingredient (leave null for free-text items with no catalogue match, unless the user sets one manually). Make `expiry_date` editable via the existing pantry item tap-to-edit UI — add an editable date field alongside the existing quantity stepper. On the pantry tile itself (not just the expanded state), show 'Expires in N days' text at all times. When `expiry_date` is 3 days or fewer away, show a visual warning indicator on the tile using the same amber styling already used for 'Missing' ingredient tags elsewhere in the app."
 
 ---
 
-## Phase 2 — Database
-> Can be done in parallel with Phase 3 (UI). Both tracks are independent until Phase 4.
+## A6 — Home: pantry expiring-soon warning [CLAUDE CODE]
+
+*(Depends on A5.)*
+
+### Product requirements
+- On Home's "Pantry items" stat card, show a warning badge/text reading **"N items expiring soon"** whenever at least one pantry item is within the expiring-soon window (same 3-day threshold as A5).
+- If nothing is expiring soon, the stat card looks exactly as it does today — no empty warning state shown.
+
+### Prompt for Claude Code
+> "On the Home screen's 'Pantry items' stat card, add a small warning line reading '{n} items expiring soon' whenever one or more pantry items have an `expiry_date` within 3 days. Omit this line entirely when no items qualify. Reuse the amber warning styling from the Pantry tile expiration indicator (A5) for visual consistency."
 
 ---
 
-### Step 2.1 — [YOU] Spin up local PostgreSQL
+## A7 — Pantry bulk delete [CLAUDE CODE]
 
-```bash
-docker compose up -d
-```
+*(The "Select" link entry point was already added to the header in A4 — this step wires the actual behavior.)*
 
-Verify it's running: `docker compose ps` — postgres should show as healthy.
+### Product requirements
+- Tapping **"Select"** (top-right of Pantry header) enters selection mode.
+- In selection mode:
+  - Tiles no longer expand on tap (the existing tap-to-edit stepper is suspended).
+  - Each tile shows a checkbox (top-left corner); tapping the tile toggles its checked state.
+  - Selected tiles get a subtle primary-colored border/tint, consistent with the existing "active" tile styling seen in the current tap-to-edit state.
+  - A bottom action bar appears, docked above the tab bar: **"Cancel"** (left) and **"Delete (n)"** (right — disabled/greyed while `n === 0`).
+- Tapping **"Delete (n)"** shows an inline confirmation ("Delete {n} items?" / Confirm / Cancel) before removing them.
+- Confirming exits selection mode and returns to normal tap-to-expand behavior; "Cancel" does the same without deleting anything.
+- This is a soft delete (`deleted_at`), consistent with existing single-item delete behavior.
+- This bulk delete action should also update the `last_pantry_update` field from A4 (type: `delete`).
 
----
-
-### Step 2.2 — [CLAUDE CODE] Write all Knex migrations
-
-**Prompt Claude Code with:**
-> "Write Knex migration files for all tables in ARCHITECTURE.md Section 5, in this order. Each migration is one file. Use the exact SQL from the architecture doc."
-
-Migration order (dependencies first):
-1. `create_users`
-2. `create_dietary_preferences`
-3. `create_ingredients`
-4. `create_pantry_items`
-5. `create_recipes`
-6. `create_recipe_ingredients`
-7. `create_recipe_steps`
-8. `create_saved_recipes`
-9. `create_chef_generations`
+### Prompt for Claude Code
+> "Implement Pantry bulk-delete selection mode, triggered by the existing 'Select' link in the header. While active: tiles show a checkbox instead of expanding on tap; tapping toggles selection with a border/tint matching the existing active-tile style. Show a bottom action bar above the tab bar with 'Cancel' and 'Delete (n)' (disabled at n=0). Confirming shows an inline 'Delete {n} items?' confirmation before soft-deleting the selected pantry items (batch call, single transaction) and exiting selection mode. Update the `last_pantry_update` user field with `{ type: 'delete', updated_at: now }` on successful bulk delete."
 
 ---
 
-### Step 2.3 — [CLAUDE CODE] Write the ingredients seed file
+## A8 — Recipe caching by filters [CLAUDE CODE]
 
-**Prompt Claude Code with:**
-> "Write a Knex seed file at `apps/api/db/seeds/ingredients.js` that populates the `ingredients` table with ~80 common pantry items across all categories: produce, dairy, grains, protein, legumes, other. Use the schema from ARCHITECTURE.md. Include `name_normalized` (lowercase trim of name), `default_unit`, `allowed_units` array, and `is_countable`."
+### Product requirements
+- On a fresh **"Chef it"** generation (not Retry): before calling Gemini, search the `recipes` catalogue for a match on `meal_type`, `cook_time`, `difficulty`, `cuisine`, and active dietary preferences. **Servings is excluded from matching.**
+- Cache lookup is **bypassed entirely** (always call Gemini) whenever the "Extra notes" field is non-empty — this is already the documented behavior, just confirming it stays.
+- Among candidate matches, additionally rank by **pantry ingredient overlap** — the cached recipe whose ingredient list overlaps most with the user's current pantry wins.
+- If multiple candidates tie on overlap, take the first one returned (no further tie-breaking logic needed).
+- On a cache hit: **scale ingredient quantities** to match the servings the user requested for this generation (e.g. cached recipe was for 2 servings, user requested 4 → multiply all ingredient quantities by 2).
+- **Retry** always calls Gemini fresh — it never checks the cache, since its entire purpose is to produce something different from what was just shown.
 
----
-
-### Step 2.4 — [YOU] Run migrations and seed
-
-```bash
-npm run db:migrate -w apps/api
-npm run db:seed -w apps/api
-```
-
-Verify: connect to the DB (`psql` or TablePlus) and confirm tables and seed data exist.
+### Prompt for Claude Code
+> "Implement cache-first recipe lookup for Chef's fresh 'Chef it' generation flow (not Retry). Before calling Gemini, query the `recipes` table for candidates matching `meal_type`, `cook_time_mins`, `difficulty`, and `cuisine`, filtered further by the user's active dietary preferences, but excluding `servings` from the match. Skip this lookup entirely if the Extra Notes field is non-empty. Among matching candidates, rank by ingredient overlap with the user's current pantry (highest overlap wins; ties resolved by taking the first result). On a cache hit, scale all `recipe_ingredients` quantities proportionally to the user's requested servings before returning the recipe. Retry must always bypass this cache and call Gemini directly, exactly as it does today."
 
 ---
 
-## Phase 3 — UI (parallel with Phase 2)
-> Build all five screens as static wireframes first — no API calls, hardcoded data. This lets you validate the UI before the backend is ready.
+## A9 — Chef: pantry freshness weighting in prompt [CLAUDE CODE — paused]
+
+*(Depends on A5 for expiry data to exist.)*
+
+### Product requirements
+- The Gemini prompt should be made aware of which pantry ingredients are closer to expiring, so it can be biased toward using them.
+
+### ⚠️ Do not implement prompt logic yet
+Scaffold the function signature and data plumbing only (i.e., make sure `days_until_expiry` per pantry item is available to `buildChefPrompt()`), but **leave the actual prompt wording as a TODO**. Pablo will provide the specific prompt design once expiration data (A5) is live and he's had a chance to see it in practice.
+
+### Prompt for Claude Code
+> "Update `buildChefPrompt()` in `apps/api/src/services/gemini.js` so that each pantry item passed into the prompt includes a computed `days_until_expiry` value (from the `expiry_date` added in A5). Do NOT write the actual prompt instructions for how Gemini should use this data yet — leave a clear `// TODO: Pablo to provide freshness-weighting prompt language` comment at the relevant spot and stop there."
 
 ---
 
-### Step 3.1 — [CLAUDE CODE] Design system & shared components
+## A10 — Chef: "trying something new" cuisine option [CLAUDE CODE]
 
-**Prompt Claude Code with:**
-> "Create a design system file at `apps/web/src/styles/tokens.css` with the CSS variables from ARCHITECTURE.md. Then build these shared components in `apps/web/src/components/` — use the wireframes in the project docs as the visual reference. Use only the design tokens, no hardcoded colors."
+### Product requirements
+- Add an option at the top of the existing cuisine dropdown list, e.g. **"Surprise me — pick for me"**.
+- Selecting it does not lock in a specific cuisine — instead, the backend picks a cuisine at random from the pre-defined cuisine list at generation time.
+- All other filters (meal type, cook time, difficulty, servings) behave exactly as normal — only the cuisine is randomized.
+- **[ASSUMPTION]** Random selection is uniform across the existing cuisine list (no weighting toward cuisines the user hasn't tried). Flag if you want weighting instead.
 
-Components to build:
-- `TabBar.jsx` — 5 tabs, active state, auth-aware label switching (Profile ↔ Sign in)
-- `RecipeCard.jsx` — collapsed and expanded states, match bar, pantry tags
-- `Toast.jsx` — auto-dismiss, green checkmark variant
-- `MatchBar.jsx` — colour thresholds from the spec (green/grey/amber)
-- `PantryTag.jsx` — "In pantry" / "Missing" tags
-
----
-
-### Step 3.2 — [CLAUDE CODE] Home screen (static)
-
-**Prompt Claude Code with:**
-> "Build the Home screen at `apps/web/src/pages/Home.jsx` using hardcoded data. Implement all three states from the wireframes: default (with hero card + stats + suggestion list), expanded recipe card, and the post-cook toast state. No API calls — import fake data from a local constant."
-
-Reference: `home_screen_v2.html` in the project docs.
+### Prompt for Claude Code
+> "Add a 'Surprise me — pick for me' option at the top of the Chef cuisine dropdown. When selected, the frontend sends no fixed cuisine value; the backend, inside the chef generation route, picks one cuisine at random (uniform distribution) from the existing predefined cuisine list before building the Gemini prompt. All other filters behave unchanged."
 
 ---
 
-### Step 3.3 — [CLAUDE CODE] Chef screen (static)
+## A11 — Auth model rework [CLAUDE CODE]
 
-**Prompt Claude Code with:**
-> "Build the Chef screen at `apps/web/src/pages/Chef.jsx`. Implement all three states: input form (with chip selectors, servings stepper, notes field), loading/generating state, and result state (with ingredient list, pantry tags, approve/retry buttons). No API calls yet — use a button to manually toggle between states for testing."
+### Product requirements
+- Home moves behind the same `ProtectedRoute` pattern already used for Chef, Pantry, and Saved.
+- **Delete** the entire signed-out Home experience: the no-name greeting, "Create an account..." hero variant, "--" stat cards with "Sign in to track" links, and the public Trending feed used for logged-out users. None of this is needed anymore.
+- Signed-out users hitting `/home` (or any protected route) redirect to the Auth page exactly as Chef/Pantry/Saved already do today — no special-cased "Maybe later" link for Home (that pattern remains unique to the Profile/Sign-in tab, unchanged).
+- After successful authentication, default redirect destination (when none was stored) becomes `/home`, not `/` .
 
-Reference: `chef_wireframes.html` in the project docs.
-
----
-
-### Step 3.4 — [CLAUDE CODE] Pantry screen (static)
-
-**Prompt Claude Code with:**
-> "Build the Pantry screen at `apps/web/src/pages/Pantry.jsx`. Include the main grid view with category filters and the full-screen Add Item flow with three tabs: Scan (camera placeholder + manual fallback), Voice (mic button + parsed results state), and Manual (autosuggest input + item confirmation form). No API calls — use hardcoded ingredient list for autosuggest."
+### Prompt for Claude Code
+> "Wrap the Home route in the existing `ProtectedRoute` component, identical to Chef/Pantry/Saved. Delete all signed-out-specific Home UI: the anonymous greeting, the 'Create an account to start cooking' hero variant, the '--' stat cards with 'Sign in to track' links, and the public Trending feed component used only for logged-out users. Update the auth redirect default (when no intended destination was stored) to `/home` instead of `/`. Leave the Profile tab's 'Sign in' behavior and its 'Maybe later' option untouched."
 
 ---
 
-### Step 3.5 — [CLAUDE CODE] Saved & Profile screens (static)
+## A12 — Landing page [CLAUDE CODE — needs live execution-time guidance]
 
-**Prompt Claude Code with:**
-> "Build Saved (`apps/web/src/pages/Saved.jsx`) and Profile (`apps/web/src/pages/Profile.jsx`) screens using hardcoded data. For Saved: list view with search, filter chips, collapsed and expanded card states, cook/delete actions. For Profile: avatar, stats row, dietary preference toggles (local state only), account rows."
+*(Depends on A11 — the routing this page relies on must exist first.)*
 
-Reference: `saved_and_profile_v2.html` in the project docs.
+### Product requirements
+- Route: `/` (root). This is now a distinct route from `/home`.
+- Pure marketing content: copy, one or more screenshots, and CTA button(s). No live data, no recipe previews.
+- CTA behavior: 
+  - If the visitor is already authenticated, the CTA routes straight to `/home`.
+  - If not authenticated, the CTA routes to the Auth page; on successful authentication, the user lands on `/home`.
+- **This step needs a live working session with Pablo** to choose screenshots, write copy, and decide page structure/sections — do not have Claude Code freelance the content or layout. Treat this step as "scaffold only" until that session happens.
 
----
-
-### Step 3.6 — [CLAUDE CODE] Auth screen (static)
-
-**Prompt Claude Code with:**
-> "Build the Auth screen at `apps/web/src/pages/Auth.jsx`. Full-screen layout with Google SSO button, email/password fields, mode toggle between Sign in and Create account. Wire up form validation logic (client-side only, no API calls yet). Include the 'Maybe later' back option."
-
----
-
-## Phase 4 — Authentication (connects Phase 1 + 3)
-> First thing that wires frontend to a real external service.
+### Prompt for Claude Code
+> "Create a new route at `/` rendering a standalone landing page (no tab bar), separate from `/home`. For now, scaffold the page structure only: a hero section (headline + subhead placeholders), a screenshot placeholder section, and a primary CTA button. Wire the CTA so that authenticated visitors are routed to `/home` and unauthenticated visitors are routed to the Auth page (which itself already redirects to `/home` on success). Do not finalize copy, imagery, or visual design yet — flag this page as pending a content/design pass."
 
 ---
 
-### Step 4.1 — [CLAUDE CODE] Add Firebase SDK to frontend
+## Summary — build order
 
-**Prompt Claude Code with:**
-> "Install `firebase` in `apps/web`. Create `apps/web/src/lib/firebase.js` that initialises the Firebase app using environment variables. Wire up the Zustand authStore to listen to `onAuthStateChanged`. Add the Firebase config values as placeholders."
-
-Placeholders to fill in after running:
-```
-VITE_FIREBASE_API_KEY=<!-- REPLACE: from Firebase console Step 0.3 -->
-VITE_FIREBASE_AUTH_DOMAIN=<!-- REPLACE: from Firebase console Step 0.3 -->
-VITE_FIREBASE_PROJECT_ID=<!-- REPLACE: from Firebase console Step 0.3 -->
-```
-
----
-
-### Step 4.2 — [CLAUDE CODE] Wire Auth screen to Firebase
-
-**Prompt Claude Code with:**
-> "Connect the Auth screen to Firebase Authentication. Implement: Google OAuth via `signInWithPopup`, email/password sign in via `signInWithEmailAndPassword`, account creation via `createUserWithEmailAndPassword`. On success, call `POST /api/v1/auth/sync` with the Firebase JWT. Handle all error states from the UX spec (wrong password, email not found, etc.)."
-
----
-
-### Step 4.3 — [CLAUDE CODE] Implement auth middleware and sync endpoint on backend
-
-**Prompt Claude Code with:**
-> "Implement the auth middleware in `apps/api/src/middleware/auth.js` using `firebase-admin`. Add the Firebase service account key as an environment variable placeholder. Implement `POST /api/v1/auth/sync` to upsert the user row in PostgreSQL using the decoded Firebase UID."
-
-Placeholder:
-```
-FIREBASE_SERVICE_ACCOUNT_KEY=<!-- REPLACE: base64-encoded service account JSON from Firebase console → Project Settings → Service accounts -->
-```
-
----
-
-### Step 4.4 — [CLAUDE CODE] Add route guards to frontend
-
-**Prompt Claude Code with:**
-> "Create a `ProtectedRoute` component that reads from the Zustand authStore. Wrap Chef, Pantry, and Saved routes with it — redirect to Auth with the intended destination stored in authStore. Update TabBar to show 'Sign in' label when logged out."
-
----
-
-## Phase 5 — Backend routes (API layer)
-> Build each route with its tests. Work feature by feature, not all routes at once.
-
----
-
-### Step 5.1 — [CLAUDE CODE] Pantry routes + tests
-
-**Prompt Claude Code with:**
-> "Implement the pantry routes in `apps/api/src/routes/pantry.js`: GET /pantry, POST /pantry, PATCH /pantry/:id, DELETE /pantry/:id (soft delete). All require auth middleware. Write Vitest unit tests for each route using Supertest. Test: happy path, auth missing (401), item not found (404), soft delete leaves row with deleted_at set."
-
----
-
-### Step 5.2 — [CLAUDE CODE] Voice parsing route + tests
-
-**Prompt Claude Code with:**
-> "Implement `POST /api/v1/pantry/voice` and `POST /api/v1/pantry/bulk`. The voice route takes a transcript string, calls `buildVoiceParsePrompt` in gemini.js, sends it to the Gemini API, and returns the parsed items array. The bulk route takes that array and inserts all items into pantry_items in one transaction. Write tests — mock the Gemini API call and test the parsing and bulk insert logic."
-
----
-
-### Step 5.3 — [CLAUDE CODE] Recipe routes + tests
-
-**Prompt Claude Code with:**
-> "Implement recipe routes: GET /recipes/trending (public, random 5 from DB), GET /recipes/suggestions (auth required, uses pantryMatch.js to rank by match %, time of day, dietary preferences), GET /recipes/:id (full detail with ingredients and steps). Write tests for the suggestion ranking logic, especially the match % calculation and time-of-day ordering."
-
----
-
-### Step 5.4 — [CLAUDE CODE] Chef generation route + tests
-
-**Prompt Claude Code with:**
-> "Implement `POST /api/v1/chef/generate` and `POST /api/v1/chef/:generationId/approve`. Generate: build prompt from pantry snapshot + filters + preferences, call Gemini, parse JSON response, insert into recipes + recipe_ingredients + recipe_steps + chef_generations tables. Approve: mark generation as approved, insert into saved_recipes with is_chef_pick=true, navigate hint in response. Write tests — mock Gemini, test that retry doesn't repeat a recipe_id for the same session."
-
----
-
-### Step 5.5 — [CLAUDE CODE] Saved, Cook, and Profile routes + tests
-
-**Prompt Claude Code with:**
-> "Implement the remaining routes: GET/POST/DELETE /saved, POST /cook (decrement pantry quantities, increment users.cooked_count in a single transaction, remove items that hit 0), GET/PATCH /profile, PATCH /profile/preferences. Write tests for the cook transaction — verify pantry decrement and cooked_count increment happen atomically."
-
----
-
-## Phase 6 — Connect frontend to API
-> Replace all hardcoded data with real API calls, screen by screen.
-
----
-
-### Step 6.1 — [CLAUDE CODE] API client and React Query setup
-
-**Prompt Claude Code with:**
-> "Implement `apps/web/src/lib/api.js` as a base fetch wrapper that automatically attaches the Firebase JWT from Zustand authStore to every request. Set up React Query with sensible defaults (staleTime, retry config). Create query key constants file at `apps/web/src/lib/queryKeys.js`."
-
----
-
-### Step 6.2 — [CLAUDE CODE] Wire Home screen
-
-**Prompt Claude Code with:**
-> "Replace all hardcoded data in Home.jsx with React Query hooks. Implement: pantry count query (30s poll), saved count query (30s poll), suggestions query (refetch on tab focus). Wire 'Cook this' mutation (POST /cook, invalidate pantry + suggestions on success, show Toast). Wire 'Save' mutation (POST /saved, invalidate saved count). Handle loading skeletons and error states per the UX spec."
-
----
-
-### Step 6.3 — [CLAUDE CODE] Wire Chef screen
-
-**Prompt Claude Code with:**
-> "Replace Chef.jsx hardcoded state transitions with real API calls. Implement: 'Chef it' button calls POST /chef/generate and transitions to loading → result state. 'Approve' calls POST /chef/:id/approve then navigates to Saved. 'Retry' calls POST /chef/generate again with same filters (pass previous generationId context). 'Adjust' returns to input with filters preserved in component state."
-
----
-
-### Step 6.4 — [CLAUDE CODE] Wire Pantry screen
-
-**Prompt Claude Code with:**
-> "Wire the Pantry screen: main grid uses GET /pantry with category filter applied client-side. Manual tab: autosuggest searches the ingredients catalogue from GET /recipes (or a new GET /ingredients endpoint — add it if needed). Voice tab: call POST /pantry/voice with transcript, show parsed results, confirm calls POST /pantry/bulk. Edit/delete on existing items calls PATCH and DELETE endpoints."
-
----
-
-### Step 6.5 — [CLAUDE CODE] Wire Saved and Profile screens
-
-**Prompt Claude Code with:**
-> "Wire Saved screen: GET /saved with search and filter applied client-side. 'Cook this' mutation same as Home. 'Delete' calls DELETE /saved/:id with inline confirmation. Wire Profile screen: GET /profile for stats and preferences. PATCH /profile/preferences on every toggle change (immediate, no save button). PATCH /profile for edit profile sub-screen."
-
----
-
-## Phase 7 — Voice input (MVP feature)
-
----
-
-### Step 7.1 — [CLAUDE CODE] Implement useVoiceInput hook
-
-**Prompt Claude Code with:**
-> "Implement `apps/web/src/hooks/useVoiceInput.js` using the Web Speech API. Hook returns: `start()`, `stop()`, `status` ('idle' | 'listening' | 'processing'), `transcript`. Detect browser support — if `window.SpeechRecognition` and `window.webkitSpeechRecognition` are both undefined, return `{ supported: false }`. Handle the `onresult` and `onerror` events. Do not send to API — just return the transcript string."
-
----
-
-### Step 7.2 — [CLAUDE CODE] Wire voice tab in Pantry
-
-**Prompt Claude Code with:**
-> "Wire the Voice tab in the Pantry Add Item flow using `useVoiceInput`. On transcript received: call POST /pantry/voice, show the parsed results list (sub-state B). Each row is editable. 'Redo' resets to sub-state A. 'Add all to pantry' calls POST /pantry/bulk and closes the Add Item flow. Show the unsupported browser fallback if `supported: false`."
-
----
-
-## Phase 8 — Observability
-
----
-
-### Step 8.1 — [CLAUDE CODE] Complete OTel implementation
-
-**Prompt Claude Code with:**
-> "The telemetry.js skeleton is already in place. Now add custom spans for the three highest-value operations: `chef.generate` (attributes: user ID, meal type, pantry size, generation duration), `pantry.voice_parse` (attributes: transcript length, items parsed), and `cook.execute` (attributes: ingredients removed count). Wrap each in try/catch with `span.recordException` on error. Verify the Jaeger UI at localhost:16686 receives traces when running locally."
-
----
-
-## Phase 9 — GCP deployment
-
----
-
-### Step 9.1 — [YOU] Install and authenticate gcloud CLI
-
-```bash
-# Install: https://cloud.google.com/sdk/docs/install
-gcloud auth login
-gcloud config set project <!-- REPLACE: your GCP project ID from Step 0.2 -->
-```
-
----
-
-### Step 9.2 — [YOU] Create Cloud SQL instance
-
-```bash
-gcloud sql instances create plated-db \
-  --database-version=POSTGRES_16 \
-  --tier=db-f1-micro \
-  --region=<!-- REPLACE: your preferred region, e.g. northamerica-northeast1 -->
-
-gcloud sql databases create plated_prod --instance=plated-db
-gcloud sql users create plated --instance=plated-db --password=<!-- REPLACE: strong password -->
-```
-
----
-
-### Step 9.3 — [YOU] Create Artifact Registry repository
-
-```bash
-gcloud artifacts repositories create plated \
-  --repository-format=docker \
-  --location=<!-- REPLACE: same region as above -->
-```
-
----
-
-### Step 9.4 — [CLAUDE CODE] Write Dockerfiles
-
-**Prompt Claude Code with:**
-> "Write a Dockerfile for `apps/api` — Node 20 Alpine base, copy only what's needed, run as non-root user, expose port 3001. Write a Dockerfile for `apps/web` — multi-stage build: Node 20 to build the Vite app, then nginx:alpine to serve the static output. Both Dockerfiles should be in their respective app directories."
-
----
-
-### Step 9.5 — [YOU] Store secrets in Secret Manager
-
-```bash
-# Create each secret (then add the value in the GCP console UI or via echo pipe)
-gcloud secrets create DATABASE_URL --replication-policy=automatic
-gcloud secrets create GEMINI_API_KEY --replication-policy=automatic
-gcloud secrets create FIREBASE_SERVICE_ACCOUNT_KEY --replication-policy=automatic
-```
-
-Add the actual values via GCP console → Secret Manager → each secret → "Add version".
-
----
-
-### Step 9.6 — [CLAUDE CODE] Write GitHub Actions CI/CD workflows
-
-**Prompt Claude Code with:**
-> "Write two GitHub Actions workflows: (1) `.github/workflows/ci.yml` — runs on push and PR: installs deps, lints, runs tests with a postgres service container. (2) `.github/workflows/deploy.yml` — runs on merge to main only: builds Docker images for api and web, pushes to Artifact Registry, deploys both to Cloud Run using gcloud CLI. Use GitHub secrets for GCP credentials. Add placeholder comments for all secret names that need to be configured in the GitHub repo settings."
-
-GitHub secrets to add after:
-```
-GCP_PROJECT_ID=<!-- REPLACE: GCP project ID -->
-GCP_SA_KEY=<!-- REPLACE: service account JSON with Cloud Run + Artifact Registry permissions -->
-GCP_REGION=<!-- REPLACE: your region -->
-```
-
----
-
-### Step 9.7 — [YOU] First production deploy
-
-```bash
-# Trigger manually or push to main
-git push origin main
-```
-
-Watch the Actions tab in GitHub. Verify both Cloud Run services are healthy in GCP console.
-
----
-
-### Step 9.8 — [YOU] Run migrations against Cloud SQL
-
-```bash
-# Using Cloud SQL Auth Proxy locally to reach the prod DB
-cloud-sql-proxy <!-- REPLACE: connection name from Cloud SQL console --> &
-DATABASE_URL=<!-- REPLACE: prod connection string --> npm run db:migrate -w apps/api
-DATABASE_URL=<!-- REPLACE: prod connection string --> npm run db:seed -w apps/api
-```
-
----
-
-## Phase 10 — Scanning (deferred — decision pending)
-
-> Do not start this phase until the barcode-vs-vision decision is made. The endpoint shape is already reserved in the API (`/api/v1/pantry/scan`). When ready:
-
-**If barcode:** install `@zxing/library` in `apps/web`, add Open Food Facts API call in the scan route.
-
-**If Gemini Vision:** send base64 image to Gemini multimodal in the scan route — response shape is identical to the voice parse response, so the frontend needs no changes.
-
----
-
-## Parallel work summary
-
-```
-Phase 0        Phase 1          Phase 2          Phase 3
-[Accounts]  →  [Repo scaffold]  [Database]  ←→  [UI screens]
-                    ↓               ↓               ↓
-               Phase 4 (Auth — first integration point)
-                    ↓
-               Phase 5 (Backend routes)
-                    ↓
-               Phase 6 (Wire frontend to API)
-                    ↓
-               Phase 7 (Voice)  +  Phase 8 (OTel)
-                    ↓
-               Phase 9 (GCP deploy)
-                    ↓
-               Phase 10 (Scanning — when decided)
-```
-
-**Phases 2 and 3 are the big parallel opportunity.** Once Phase 1 scaffold is done, one track builds all database migrations and seeds while the other builds all five UI screens as static wireframes. They converge at Phase 4.
-
----
-
-## Placeholder index
-
-All values marked `<!-- REPLACE: ... -->` in one place for easy tracking:
-
-| Location | Placeholder | Where to get it |
+| # | Step | Depends on |
 |---|---|---|
-| Step 0.2 | GCP Project ID | GCP console after project creation |
-| Step 0.3 | Firebase API key | Firebase console → Project Settings → General |
-| Step 0.3 | Firebase auth domain | Same as above |
-| Step 0.3 | Firebase project ID | Same as above |
-| Step 4.1 | `VITE_FIREBASE_API_KEY` | Same as above |
-| Step 4.1 | `VITE_FIREBASE_AUTH_DOMAIN` | Same as above |
-| Step 4.1 | `VITE_FIREBASE_PROJECT_ID` | Same as above |
-| Step 4.3 | `FIREBASE_SERVICE_ACCOUNT_KEY` | Firebase console → Project Settings → Service accounts → Generate new private key |
-| Step 9.2 | Cloud SQL region | Your choice — pick one close to your users |
-| Step 9.2 | Cloud SQL password | Generate a strong one, store it in a password manager |
-| Step 9.3 | Artifact Registry region | Same as Cloud SQL |
-| Step 9.5 | Secret values | From above steps |
-| Step 9.6 | `GCP_PROJECT_ID` GitHub secret | GCP Project ID |
-| Step 9.6 | `GCP_SA_KEY` GitHub secret | GCP console → IAM → Service accounts → create one with Cloud Run Admin + Artifact Registry Writer roles |
-| Step 9.6 | `GCP_REGION` GitHub secret | Your region |
-| Step 9.8 | Cloud SQL connection name | GCP console → Cloud SQL → instance → connection name field |
+| A1 | Recipe detail page | — |
+| A2 | Migrate entry points to detail page | A1 |
+| A3 | Chef Approve → detail page redirect | A1 |
+| A4 | Pantry header: remove count, add last-updated + Select | — |
+| A5 | Expiration tracking MVP | — (needs [YOU] review checkpoint) |
+| A6 | Home expiring-soon warning | A5 |
+| A7 | Bulk delete | A4 |
+| A8 | Recipe caching by filters | — |
+| A9 | Freshness weighting in prompt (paused) | A5 |
+| A10 | "Trying something new" cuisine option | — |
+| A11 | Auth model rework | — |
+| A12 | Landing page | A11 |

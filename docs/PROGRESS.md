@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | A1 | CLAUDE CODE | Recipe detail page (`/recipe/:id`) | done | Completed 2026-07-06 |
 | A2 | CLAUDE CODE | Migrate all recipe entry points to detail page | done | Completed 2026-07-06 |
-| A3 | CLAUDE CODE | Chef Approve → redirect to detail page | pending | depends on A1 |
+| A3 | CLAUDE CODE | Chef Approve → redirect to detail page | done | Completed 2026-07-06 |
 | A4 | CLAUDE CODE | Pantry header: remove count, add last-updated + Select | pending | |
 | A5a | CLAUDE CODE | Expiration tracking: generate shelf-life table for review | pending | |
 | A5b | YOU | Review and approve the shelf-life table | pending | depends on A5a — Claude stops and waits |
@@ -41,3 +41,4 @@
 
 - **A1** — Recipe detail page (`/recipe/:id`) — 2026-07-06
 - **A2** — Migrate all recipe entry points to detail page — 2026-07-06
+- **A3** — Chef Approve → redirect to detail page — 2026-07-06

@@ -70,14 +70,14 @@ export default function Chef() {
   // ── Approve mutation ──────────────────────────────────────────────────────
   const approveMutation = useMutation({
     mutationFn: (genId) => post(`/api/v1/chef/${genId}/approve`, {}),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saved.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
       showToast('Recipe approved and saved to your collection!');
       setView('input');
       setRecipe(null);
       setGenerationId(null);
-      navigate('/saved');
+      navigate(`/recipe/${data.recipe.id}`);
     },
     onError: () => showToast('Could not approve recipe. Please try again.'),
   });

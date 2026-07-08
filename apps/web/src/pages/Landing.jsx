@@ -11,7 +11,7 @@ const IMAGES = [
   '/landing/image-5.jpg',
 ];
 
-// Positions match the wireframe fan layout exactly.
+// Positions match wireframe fan layout exactly.
 const FAN_POSITIONS = [
   { rotate: 0,   top: 14, left: 115, scale: 1.15, z: 5 },
   { rotate: -18, top: 34, left: 48,  scale: 0.95, z: 4 },
@@ -20,119 +20,77 @@ const FAN_POSITIONS = [
   { rotate: 34,  top: 60, left: 252, scale: 0.9,  z: 1 },
 ];
 
+function ArrowRightIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14M12 5l7 7-7 7"/>
+    </svg>
+  );
+}
+
 /**
  * Landing — public marketing page at `/`.
+ * No tab bar (TabBar checks pathname and returns null for `/`).
  *
- * Standalone page: no tab bar (TabBar checks pathname and returns null for `/`).
+ * Structure matches wireframe landing_page.html:
+ *   1. Hero — eyebrow, h1, subhead, Sign In CTA, Coming soon text, fan of dish photos
+ *   2. Explainer — How it works, 3 feature steps with icons
+ *   3. Demo — See it in action, 4 screenshot placeholders (dark bg)
+ *   4. Footer
  *
- * CTA routing:
- *   - Authenticated visitors → /home
- *   - Unauthenticated visitors → /auth (Auth page already redirects to /home on success)
- *
- * [ASSUMPTION]: During status === 'loading' the CTA defaults to '/auth'. If the
- * user is actually authenticated, the Auth page will detect the session and
- * redirect them to /home without showing the auth UI.
- *
- * [ASSUMPTION]: The nav "Sign In" link uses the same auth-aware routing as the
- * hero CTA — clicking it while already authenticated routes to /home.
- *
- * [ASSUMPTION]: The page renders within the existing 480px app-shell (matching
- * the rest of the app). A full-width desktop layout is deferred to the
- * content/design pass mentioned in BUILD_PLAN.md A12.
+ * CTA routing: authenticated → /home, unauthenticated → /auth
  */
 export default function Landing() {
   const navigate = useNavigate();
   const { status } = useAuthStore();
-  // order[0] = which image index is at rank 0 (front/center); click cycles it.
   const [order, setOrder] = useState([0, 1, 2, 3, 4]);
 
-  function cycleFan() {
-    setOrder(prev => [...prev.slice(1), prev[0]]);
-  }
+  const ctaDestination = status === 'authenticated' ? '/home' : '/auth';
 
-  // [ASSUMPTION]: 'loading' is treated the same as 'unauthenticated' for CTA routing.
-  const isAuthenticated = status === 'authenticated';
-  const ctaDestination = isAuthenticated ? '/home' : '/auth';
-
-  function handleCta() {
-    navigate(ctaDestination);
-  }
+  function handleCta() { navigate(ctaDestination); }
+  function cycleFan() { setOrder(prev => [...prev.slice(1), prev[0]]); }
 
   return (
     <div className="landing">
 
-      {/* ── Nav bar ─────────────────────────────────────────────────────── */}
+      {/* ── Nav bar ────────────────────────────────────────────────────── */}
       <header className="landing-nav">
         <span className="landing-nav__wordmark">Plated</span>
-        <button className="landing-nav__signin" onClick={handleCta}>
-          Sign In
-        </button>
+        <button className="landing-nav__signin" onClick={handleCta}>Sign In</button>
       </header>
 
-      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      {/* ── Section 1: Hero ────────────────────────────────────────────── */}
       <section className="landing-hero">
-        <p className="landing-hero__eyebrow">AI-powered kitchen</p>
-        <h1 className="landing-hero__headline">Your pantry, turned into dinner</h1>
-        <p className="landing-hero__subhead">From pantry to plate, in seconds</p>
-        <p className="landing-hero__body">What can I cook today?</p>
+        <div className="landing-hero__eyebrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+          AI-powered kitchen
+        </div>
+
+        <h1 className="landing-hero__headline">What can I cook today?</h1>
+
+        <p className="landing-hero__subhead">
+          Plated turns whatever&apos;s in your pantry into a recipe in seconds, no scrolling required.
+        </p>
+
         <button className="landing-cta-btn" onClick={handleCta}>
-          Sign In
+          Sign In <ArrowRightIcon />
         </button>
-      </section>
 
-      {/* ── How it works ────────────────────────────────────────────────── */}
-      <section className="landing-section">
-        <h2 className="landing-section__heading">How it works</h2>
-        <ol className="landing-steps" aria-label="How Plated works">
-          <li className="landing-step">
-            <span className="landing-step__num" aria-hidden="true">1</span>
-            <div>
-              <p className="landing-step__title">Add to your pantry</p>
-              <p className="landing-step__desc">
-                Scan a barcode, speak your grocery list, or type it in — whatever&apos;s fastest.
-              </p>
-            </div>
-          </li>
-          <li className="landing-step">
-            <span className="landing-step__num" aria-hidden="true">2</span>
-            <div>
-              <p className="landing-step__title">Ask Chef for a recipe</p>
-              <p className="landing-step__desc">
-                Set meal type, time, and difficulty — Chef takes it from there.
-              </p>
-            </div>
-          </li>
-          <li className="landing-step">
-            <span className="landing-step__num" aria-hidden="true">3</span>
-            <div>
-              <p className="landing-step__title">Cook, then repeat</p>
-              <p className="landing-step__desc">
-                Full ingredient match, missing items flagged, steps ready to cook.
-              </p>
-            </div>
-          </li>
-        </ol>
-      </section>
+        <p className="landing-hero__coming-soon">Coming soon to iOS &amp; Android</p>
 
-      {/* ── Coming soon ─────────────────────────────────────────────────── */}
-      <section className="landing-section">
-        <h2 className="landing-section__heading">Coming soon to iOS &amp; Android</h2>
-
-        {/* Fan of dish photos — click to cycle which card is on top */}
+        {/* Fan of dish photos — click to cycle */}
         <div className="landing-fan-wrap">
-          {/* Radial glow behind the cards */}
           <div className="landing-fan-glow" aria-hidden="true" />
-
           <div
             className="landing-fan"
             onClick={cycleFan}
             role="button"
-            aria-label="Tap to browse dish photos"
             tabIndex={0}
+            aria-label="Tap to browse dish photos"
             onKeyDown={e => e.key === 'Enter' && cycleFan()}
           >
-            {IMAGES.map((src, imgIdx) => {
-              const rank = order.indexOf(imgIdx);
+            {IMAGES.map((src, i) => {
+              const rank = order.indexOf(i);
               const pos  = FAN_POSITIONS[rank];
               return (
                 <img
@@ -152,19 +110,88 @@ export default function Landing() {
             })}
           </div>
         </div>
+      </section>
 
-        {/* [ASSUMPTION]: Badge placeholders shown side-by-side on mobile widths. */}
-        <div className="landing-badges">
-          <div className="landing-badge-placeholder" aria-label="App Store — coming soon">
-            App Store
+      {/* ── Section 2: Explainer ───────────────────────────────────────── */}
+      <section className="landing-explainer">
+        <div className="landing-explainer__header">
+          <p className="landing-explainer__eyebrow">How it works</p>
+          <h2 className="landing-explainer__headline">Your pantry, turned into dinner</h2>
+          <p className="landing-explainer__subhead">
+            Add what you have, and Plated Chef, our built-in AI, does the rest. No more staring into the fridge.
+          </p>
+        </div>
+
+        <div className="landing-features">
+          <div className="landing-feature">
+            <div className="landing-feature__icon landing-feature__icon--red">
+              {/* Scan icon */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+            </div>
+            <div>
+              <p className="landing-feature__title">Log it however you like</p>
+              <p className="landing-feature__desc">Take a picture, say it out loud, or type it in — your pantry stays up to date.</p>
+            </div>
           </div>
-          <div className="landing-badge-placeholder" aria-label="Google Play — coming soon">
-            Google Play
+
+          <div className="landing-feature">
+            <div className="landing-feature__icon landing-feature__icon--green">
+              {/* Sparkles icon */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+            </div>
+            <div>
+              <p className="landing-feature__title">Chef finds the match</p>
+              <p className="landing-feature__desc">Get recipes ranked by how much you already have on hand, missing items called out upfront.</p>
+            </div>
+          </div>
+
+          <div className="landing-feature">
+            <div className="landing-feature__icon landing-feature__icon--red">
+              {/* Chef hat icon */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>
+            </div>
+            <div>
+              <p className="landing-feature__title">Cook, then repeat</p>
+              <p className="landing-feature__desc">Choose a recipe and your pantry updates itself, ready for tomorrow&apos;s &ldquo;what can I cook.&rdquo;</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      {/* ── Section 3: Demo / See it in action (dark bg) ──────────────── */}
+      <section className="landing-demo">
+        <div className="landing-demo__header">
+          <p className="landing-demo__eyebrow">See it in action</p>
+          <h2 className="landing-demo__headline">From pantry to plate,<br />in seconds</h2>
+        </div>
+
+        <div className="landing-demo__steps">
+          {[
+            { n: 1, title: 'Add to your pantry',      desc: 'Scan a barcode, speak your grocery list, or type it in — whatever\'s fastest.' },
+            { n: 2, title: 'See what you\'ve got',    desc: 'Every ingredient, organized and searchable at a glance.' },
+            { n: 3, title: 'Ask Chef for a recipe',   desc: 'Set meal type, time, and difficulty — Chef takes it from there.' },
+            { n: 4, title: 'Get your recipe, instantly', desc: 'Full ingredient match, missing items flagged, steps ready to cook.' },
+          ].map(({ n, title, desc }) => (
+            <div key={n} className="landing-demo__step">
+              <div className="landing-demo__step-header">
+                <span className="landing-demo__step-num">{n}</span>
+                <span className="landing-demo__step-title">{title}</span>
+              </div>
+              {/* Screenshot placeholder — real screenshots to be added later */}
+              <div className="landing-demo__screenshot" role="img" aria-label={`Screenshot: ${title}`} />
+              <p className="landing-demo__step-desc">{desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="landing-demo__cta">
+          <button className="landing-cta-btn" onClick={handleCta}>
+            Sign In <ArrowRightIcon />
+          </button>
+        </div>
+      </section>
+
+      {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="landing-footer">
         <p className="landing-footer__copy">&copy; 2026 Plated. All rights reserved.</p>
       </footer>

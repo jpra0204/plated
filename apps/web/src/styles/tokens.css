@@ -70,6 +70,17 @@
   --color-pantry-note-bg:   #F0F4EC;
   --color-pantry-note-text: #3B6D11;
 
+  /* ── Landing page — dark sections ─────────────────────────────────────── */
+  --color-landing-dark-bg:          #2B2420;   /* hero dark walnut — Demo + Footer bg */
+  --color-landing-dark-surface:     #3A322C;   /* screenshot placeholder cards */
+  --color-landing-dark-border:      rgba(255, 255, 255, 0.08);
+  --color-landing-dark-text:        #FAF9F6;   /* headings on dark bg */
+  --color-landing-dark-muted:       #8A8177;   /* footer copy on dark bg */
+  --color-landing-demo-eyebrow:     #E3937F;   /* "See it in action" salmon eyebrow */
+  --color-landing-how-eyebrow:      #8FA07C;   /* "How it works" sage green eyebrow */
+  --color-landing-green-icon-bg:    #F0F4EC;   /* sparkles icon square bg */
+  --color-landing-green-icon-color: #7C9463;   /* sparkles icon stroke */
+
   /* ── Toggle ────────────────────────────────────────────────────────────── */
   --color-toggle-off: #D3D1C7;
   --color-toggle-on:  var(--color-primary);

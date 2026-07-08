@@ -1,6 +1,24 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore.js';
 import '../styles/landing.css';
+
+const IMAGES = [
+  '/landing/image-1.jpg',
+  '/landing/image-2.jpg',
+  '/landing/image-3.jpg',
+  '/landing/image-4.jpg',
+  '/landing/image-5.jpg',
+];
+
+// Positions match the wireframe fan layout exactly.
+const FAN_POSITIONS = [
+  { rotate: 0,   top: 14, left: 115, scale: 1.15, z: 5 },
+  { rotate: -18, top: 34, left: 48,  scale: 0.95, z: 4 },
+  { rotate: 18,  top: 34, left: 182, scale: 0.95, z: 3 },
+  { rotate: -34, top: 60, left: -22, scale: 0.9,  z: 2 },
+  { rotate: 34,  top: 60, left: 252, scale: 0.9,  z: 1 },
+];
 
 /**
  * Landing — public marketing page at `/`.
@@ -25,6 +43,12 @@ import '../styles/landing.css';
 export default function Landing() {
   const navigate = useNavigate();
   const { status } = useAuthStore();
+  // order[0] = which image index is at rank 0 (front/center); click cycles it.
+  const [order, setOrder] = useState([0, 1, 2, 3, 4]);
+
+  function cycleFan() {
+    setOrder(prev => [...prev.slice(1), prev[0]]);
+  }
 
   // [ASSUMPTION]: 'loading' is treated the same as 'unauthenticated' for CTA routing.
   const isAuthenticated = status === 'authenticated';
@@ -90,23 +114,46 @@ export default function Landing() {
         </ol>
       </section>
 
-      {/* ── See it in action ────────────────────────────────────────────── */}
-      {/* [ASSUMPTION]: Grey rounded-rectangle placeholder until real screenshots are selected. */}
-      <section className="landing-section">
-        <h2 className="landing-section__heading">See it in action</h2>
-        <div
-          className="landing-screenshot-placeholder"
-          role="img"
-          aria-label="App screenshots — coming soon"
-        >
-          Screenshots coming soon
-        </div>
-      </section>
-
       {/* ── Coming soon ─────────────────────────────────────────────────── */}
-      {/* [ASSUMPTION]: Badge placeholders shown side-by-side on mobile widths. */}
       <section className="landing-section">
         <h2 className="landing-section__heading">Coming soon to iOS &amp; Android</h2>
+
+        {/* Fan of dish photos — click to cycle which card is on top */}
+        <div className="landing-fan-wrap">
+          {/* Radial glow behind the cards */}
+          <div className="landing-fan-glow" aria-hidden="true" />
+
+          <div
+            className="landing-fan"
+            onClick={cycleFan}
+            role="button"
+            aria-label="Tap to browse dish photos"
+            tabIndex={0}
+            onKeyDown={e => e.key === 'Enter' && cycleFan()}
+          >
+            {IMAGES.map((src, imgIdx) => {
+              const rank = order.indexOf(imgIdx);
+              const pos  = FAN_POSITIONS[rank];
+              return (
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  className="landing-fan__card"
+                  style={{
+                    top:       pos.top,
+                    left:      pos.left,
+                    transform: `rotate(${pos.rotate}deg) scale(${pos.scale})`,
+                    zIndex:    pos.z,
+                    boxShadow: `0 ${14 + pos.z * 4}px ${24 + pos.z * 4}px -10px rgba(43,36,32,0.35)`,
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* [ASSUMPTION]: Badge placeholders shown side-by-side on mobile widths. */}
         <div className="landing-badges">
           <div className="landing-badge-placeholder" aria-label="App Store — coming soon">
             App Store

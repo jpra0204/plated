@@ -161,9 +161,10 @@
   width: 400px;
   height: 280px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.landing-fan:focus { outline: 2px solid var(--color-primary); outline-offset: 4px; border-radius: 4px; }
+.landing-fan:focus { outline: 0; }
 
 .landing-fan__card {
   position: absolute;
@@ -301,8 +302,9 @@
   flex-direction: row;
   gap: var(--space-5);
   overflow-x: auto;
-  padding: 0 24px;
+  padding: 0;
   scroll-snap-type: x mandatory;
+  scroll-padding: 0 24px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -313,6 +315,13 @@
   flex-shrink: 0;
   width: 260px;
   scroll-snap-align: start;
+}
+.landing-demo__step:first-child {
+  margin-left: 24px;
+}
+
+.landing-demo__step:last-child {
+  margin-right: 24px;
 }
 
 .landing-demo__step-header {

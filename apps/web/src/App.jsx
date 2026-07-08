@@ -11,6 +11,7 @@ import Saved from './pages/Saved.jsx';
 import Profile from './pages/Profile.jsx';
 import Auth from './pages/Auth.jsx';
 import RecipeDetail from './pages/RecipeDetail.jsx';
+import Landing from './pages/Landing.jsx';
 import useAuthStore from './stores/authStore.js';
 import usePantrySync from './hooks/usePantrySync.js';
 import { get } from './lib/api.js';
@@ -27,7 +28,7 @@ import { queryKeys } from './lib/queryKeys.js';
  *   /recipe/:id → Recipe detail (protected)
  *   /profile   → User profile & settings
  *   /auth      → Sign-in / sign-up (no tab bar)
- *   /          → (landing page — added in A12; for now falls through to catch-all)
+ *   /          → Landing page — public marketing page (no tab bar) [A12]
  *   *          → Redirect to /home
  */
 export default function App() {
@@ -42,8 +43,9 @@ export default function App() {
           <Route path="/saved"      element={<ProtectedRoute><Saved /></ProtectedRoute>} />
           <Route path="/recipe/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/auth"   element={<Auth />} />
-          <Route path="*"       element={<Navigate to="/home" replace />} />
+          <Route path="/auth"    element={<Auth />} />
+          <Route path="/"        element={<Landing />} />
+          <Route path="*"        element={<Navigate to="/home" replace />} />
         </Routes>
       </main>
 

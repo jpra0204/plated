@@ -23,7 +23,7 @@
 | A9 | CLAUDE CODE | Chef: pantry freshness weighting in prompt | done | Completed 2026-07-07 — prompt wording TODO left for Pablo |
 | A10 | CLAUDE CODE | Chef: "Surprise me" cuisine option | done | Completed 2026-07-07 |
 | A11 | CLAUDE CODE | Auth model rework (Home behind ProtectedRoute) | done | Completed 2026-07-06 |
-| A12 | YOU | Landing page — needs live session with Pablo for copy + design | blocked-on-you | A11 done — needs Pablo for copy, screenshots, and design decisions |
+| A12 | YOU | Landing page — needs live session with Pablo for copy + design | done | Completed 2026-07-07 |
 
 ---
 
@@ -50,5 +50,6 @@
 - **A10** — Chef "Surprise me" cuisine option — 2026-07-07
 - **A6** — Home pantry expiring-soon warning badge — 2026-07-07
 - **A9** — Chef freshness scaffolding (days_until_expiry wired, prompt TODO left for Pablo) — 2026-07-07
+- **A12** — Landing page at `/` (scaffold complete, design pass deferred) — 2026-07-07
 - **A7** — Pantry bulk delete (Select mode wired) — 2026-07-06
 - **A11** — Auth model rework (Home behind ProtectedRoute) — 2026-07-06

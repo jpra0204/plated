@@ -16,7 +16,8 @@ export default function TabBar() {
   const { pathname } = useLocation();
   const { user } = useAuthStore();
 
-  if (pathname === '/auth') return null;
+  // Hidden on full-screen standalone pages (no tab navigation needed)
+  if (pathname === '/auth' || pathname === '/') return null;
 
   const tabs = [
     { to: '/home',    end: true,  label: 'Home',    icon: HomeIcon },

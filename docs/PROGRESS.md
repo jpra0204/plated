@@ -34,7 +34,7 @@
 | I1 | YOU | Create GCS bucket `plated-recipe-images` | done | Completed 2026-07-09 |
 | I2 | CLAUDE CODE | Schema: add nullable `image_url TEXT` to recipes | done | Completed 2026-07-09 |
 | I3 | CLAUDE CODE | Image storage service (`imageStorage.js`) | done | Completed 2026-07-09 |
-| I4 | CLAUDE CODE | Two-call Gemini flow: concept extraction | pending | — |
+| I4 | CLAUDE CODE | Two-call Gemini flow: concept extraction | done | Completed 2026-07-09 |
 | I5 | CLAUDE CODE | Parallelize concept → recipe + image generation | pending | Depends on I3, I4 |
 | I6 | CLAUDE CODE | Wire into cache-first lookup | pending | Depends on I5 |
 | I7 | CLAUDE CODE | Fallback / placeholder handling in frontend | pending | Depends on I2 |
@@ -71,3 +71,4 @@
 - **I1** — GCS bucket `plated-recipe-images` created, public-read confirmed — 2026-07-09
 - **I2** — Schema: nullable `image_url TEXT` added to recipes table — 2026-07-09
 - **I3** — Image storage service: WebP upload to GCS with immutable cache headers — 2026-07-09
+- **I4** — Gemini concept extraction: buildConceptPrompt + generateConcept added — 2026-07-09

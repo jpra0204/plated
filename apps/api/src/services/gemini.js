@@ -112,6 +112,68 @@ Respond ONLY with a valid JSON object in this exact shape:
 }
 
 /**
+ * Build the concept extraction prompt.
+ * Pure function — returns a prompt string asking Gemini to respond with ONLY
+ * a small JSON object: { name, cuisine, hero_ingredient }.
+ *
+ * @param {Array}  pantryItems  - User's active pantry items; each item includes
+ *                                { name, quantity, unit, days_until_expiry: number|null }
+ * @param {object} filters      - { mealType, cookTime, difficulty, cuisine, servings, notes }
+ * @param {object} preferences  - { vegetarian, glutenFree, highProtein }
+ * @returns {string} The prompt string
+ */
+export function buildConceptPrompt(pantryItems, filters, preferences) {
+  return `
+You are a recipe concept generator. Choose ONE recipe concept that suits the ingredients and requirements below.
+
+PANTRY INGREDIENTS:
+${pantryItems.map(i => `- ${i.name} (${i.quantity} ${i.unit}${i.days_until_expiry != null ? `, expires in ${i.days_until_expiry} day${i.days_until_expiry === 1 ? '' : 's'}` : ''})`).join('\n')}
+
+REQUIREMENTS:
+- Meal type: ${filters.mealType}
+- Cook time: ${filters.cookTime}
+- Difficulty: ${filters.difficulty}
+${filters.cuisine ? `- Cuisine: ${filters.cuisine}` : ''}
+- Servings: ${filters.servings}
+${filters.notes ? `- User notes: ${filters.notes}` : ''}
+
+DIETARY PREFERENCES (apply strictly):
+${preferences.vegetarian ? '- Vegetarian: no meat or fish' : ''}
+${preferences.glutenFree ? '- Gluten-free: no gluten-containing ingredients' : ''}
+${preferences.highProtein ? '- High protein: prioritise protein-rich ingredients' : ''}
+
+Respond ONLY with a valid JSON object (no explanation, no markdown fences):
+{
+  "name": "Recipe Name",
+  "cuisine": "Mediterranean",
+  "hero_ingredient": "Chickpeas"
+}
+`.trim();
+}
+
+/**
+ * Extract a recipe concept from Gemini: name, cuisine, and hero ingredient.
+ * Lightweight / fast — used as the first call in the two-call generation flow.
+ * Uses the same model config and retry logic as buildChefPrompt.
+ *
+ * @param {Array}  pantryItems  - User's active pantry items
+ * @param {object} filters      - { mealType, cookTime, difficulty, cuisine, servings, notes }
+ * @param {object} preferences  - { vegetarian, glutenFree, highProtein }
+ * @returns {Promise<{ name: string, cuisine: string, hero_ingredient: string }>}
+ */
+export async function generateConcept(pantryItems, filters, preferences) {
+  const prompt = buildConceptPrompt(pantryItems, filters, preferences);
+  const { ai, modelName } = getModel();
+  const response = await generateContent(ai, modelName, prompt);
+  const parsed = extractJSON(response.text, false);
+  return {
+    name: parsed.name,
+    cuisine: parsed.cuisine,
+    hero_ingredient: parsed.hero_ingredient,
+  };
+}
+
+/**
  * Parse a voice transcript into structured pantry items via Gemini.
  *
  * @param {string} transcript - Raw transcript from Web Speech API

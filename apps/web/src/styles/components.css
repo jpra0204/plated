@@ -2792,27 +2792,33 @@ img.recipe-card__thumb {
 
 /* ── Full-bleed image hero wrapper ───────────────────────────────────────────── */
 
-/* Breaks out of .page's 16px padding to reach screen edges */
+/* Breaks out of .page's 16px padding to reach screen edges.
+   Uses flex-column so nav sits at top and hero text sits at bottom of the image. */
 .recipe-detail__image-wrap {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-5);
+  min-height: 280px;
+  overflow: hidden;
 }
 
 .recipe-detail__image-wrap--skeleton {
   background: var(--color-secondary);
-  height: 220px;
   opacity: 0.35;
 }
 
-/* ── Recipe image (RecipeThumb target) ───────────────────────────────────────── */
+/* ── Recipe image — fills the entire wrap as a background layer ───────────────── */
 
 .recipe-detail__image {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 220px;
+  height: 100%;
   display: block;
   background: var(--color-secondary);
-  opacity: 0.45;
-  flex-shrink: 0;
+  opacity: 0.5;
 }
 
 img.recipe-detail__image {
@@ -2820,47 +2826,55 @@ img.recipe-detail__image {
   opacity: 1;
 }
 
-/* ── Nav row — floats over the image ─────────────────────────────────────────── */
+/* ── Gradient overlay — ensures text legibility over any photo ───────────────── */
+
+.recipe-detail__image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.0) 35%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* ── Nav row — floats at top of image ────────────────────────────────────────── */
 
 .recipe-detail__nav {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-5) var(--space-6);
 }
 
-/* Back button: pill with frosted-glass background */
+/* Back button: frosted-glass pill */
 .recipe-detail__back-btn {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: none;
   border-radius: var(--radius-full);
-  padding: 6px 12px 6px 8px;
+  padding: 7px 13px 7px 9px;
   font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--color-text);
+  color: #fff;
   cursor: pointer;
   line-height: 1;
 }
 
-.recipe-detail__back-btn svg {
-  width: 16px;
-  height: 16px;
-}
+.recipe-detail__back-btn svg { width: 16px; height: 16px; }
 
-/* Save/bookmark button: circle with frosted-glass background */
+/* Save/bookmark button: frosted-glass circle */
 .recipe-detail__save-btn {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: none;
   border-radius: var(--radius-full);
   width: 36px;
@@ -2868,18 +2882,19 @@ img.recipe-detail__image {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-primary);
+  color: #fff;
   cursor: pointer;
 }
 
 .recipe-detail__save-btn svg { width: 20px; height: 20px; }
 .recipe-detail__save-btn:disabled { opacity: 0.5; }
 
-/* ── Info section (title + meta) — plain background below the image ──────────── */
+/* ── Hero text — overlaid at the bottom of the image ─────────────────────────── */
 
 .recipe-detail__hero {
-  padding: var(--space-4) 0;
-  margin-bottom: var(--space-3);
+  position: relative;
+  z-index: 1;
+  padding: var(--space-5) var(--space-6);
 }
 
 .recipe-detail__hero--skeleton {
@@ -2896,17 +2911,18 @@ img.recipe-detail__image {
 
 .recipe-detail__title {
   font-size: var(--text-xl);
-  font-weight: 500;
-  color: var(--color-text);
+  font-weight: 600;
+  color: #fff;
   flex: 1;
-  line-height: 1.35;
+  line-height: 1.3;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
 .recipe-detail__meta {
   display: flex;
   gap: var(--space-5);
   font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.9);
   flex-wrap: wrap;
 }
 

@@ -4,12 +4,9 @@ import { GoogleGenAI } from '@google/genai';
 const RETRIABLE_CODES = new Set([429, 503]);
 const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 
-// [ASSUMPTION]: gemini-2.0-flash-preview-image-generation is the correct model
-// name for Gemini's image-output generation via @google/genai (API key client).
-// Imagen models (imagen-4.0-generate-001) require Vertex AI context and are NOT
-// used here. If the model name changes or a GA model is released, update this
-// constant only.
-const IMAGE_GEN_MODEL = 'gemini-2.0-flash-preview-image-generation';
+// Confirmed available via ModelService.ListModels on 2026-07-10.
+// Imagen models require Vertex AI and are not used here.
+const IMAGE_GEN_MODEL = 'gemini-2.5-flash-image';
 
 /** Maximum ms to wait for image generation before treating it as failed. */
 const IMAGE_TIMEOUT_MS = 10_000;

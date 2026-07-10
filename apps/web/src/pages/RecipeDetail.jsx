@@ -176,13 +176,17 @@ export default function RecipeDetail() {
           onDismiss={() => setToast(t => ({ ...t, visible: false }))}
         />
 
-        {/* Full-bleed image hero — nav buttons float over it */}
+        {/* Full-bleed hero: image fills the wrap, nav + title overlay it */}
         <div className="recipe-detail__image-wrap">
           <RecipeThumb
             imageUrl={recipe.imageUrl}
             alt={recipe.name}
             className="recipe-detail__image"
           />
+          {/* Gradient overlay so text is legible over any photo */}
+          <div className="recipe-detail__image-overlay" aria-hidden="true" />
+
+          {/* Nav row floats at top of image */}
           <div className="recipe-detail__nav">
             <button className="recipe-detail__back-btn" onClick={() => navigate(-1)}>
               <ChevronLeftIcon aria-hidden="true" /> Back
@@ -198,22 +202,22 @@ export default function RecipeDetail() {
                 : <BookmarkIcon aria-hidden="true" />}
             </button>
           </div>
-        </div>
 
-        {/* Recipe info — plain background below the image */}
-        <div className="recipe-detail__hero">
-          <div className="recipe-detail__hero-title-row">
-            <h1 className="recipe-detail__title">{recipe.name}</h1>
-            {recipe.source === 'chef_ai' && (
-              <span className="chef-badge">
-                <SparklesIcon aria-hidden="true" /> Chef
-              </span>
-            )}
-          </div>
-          <div className="recipe-detail__meta">
-            <span><ClockIcon aria-hidden="true" /> {recipe.cookTime} min</span>
-            <span><ChefHatIcon aria-hidden="true" /> {recipe.difficulty}</span>
-            <span><UsersIcon aria-hidden="true" /> {recipe.servings} servings</span>
+          {/* Title + meta overlaid at bottom of image */}
+          <div className="recipe-detail__hero">
+            <div className="recipe-detail__hero-title-row">
+              <h1 className="recipe-detail__title">{recipe.name}</h1>
+              {recipe.source === 'chef_ai' && (
+                <span className="chef-badge">
+                  <SparklesIcon aria-hidden="true" /> Chef
+                </span>
+              )}
+            </div>
+            <div className="recipe-detail__meta">
+              <span><ClockIcon aria-hidden="true" /> {recipe.cookTime} min</span>
+              <span><ChefHatIcon aria-hidden="true" /> {recipe.difficulty}</span>
+              <span><UsersIcon aria-hidden="true" /> {recipe.servings} servings</span>
+            </div>
           </div>
         </div>
 

@@ -2790,65 +2790,100 @@ img.recipe-card__thumb {
   padding-bottom: calc(var(--tab-height) + 64px + var(--space-6));
 }
 
-/* ── Nav row (back + save) ───────────────────────────────────────────────────── */
+/* ── Full-bleed image hero wrapper ───────────────────────────────────────────── */
 
-.recipe-detail__nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
+/* Breaks out of .page's 16px padding to reach screen edges */
+.recipe-detail__image-wrap {
+  position: relative;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-5);
 }
 
-/* Save icon button — explicit sizing so pantry-screen .icon-btn override doesn't shrink it */
-.recipe-detail__save-btn {
-  color: var(--color-primary);
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition-fast);
+.recipe-detail__image-wrap--skeleton {
+  background: var(--color-secondary);
+  height: 220px;
+  opacity: 0.35;
 }
 
-.recipe-detail__save-btn:hover { background: var(--color-border); }
-.recipe-detail__save-btn svg { width: 22px; height: 22px; }
+/* ── Recipe image (RecipeThumb target) ───────────────────────────────────────── */
 
-/* ── Recipe image — full-width banner above the hero text ───────────────────── */
-
-/*
- * [ASSUMPTION]: Placed between the nav row and the hero text block. When
- * image_url is null the RecipeThumb component renders a <div> with this class,
- * giving a grey placeholder rectangle of the same size — no layout shift.
- * object-fit: cover keeps real photos at a fixed height regardless of aspect ratio.
- */
 .recipe-detail__image {
   width: 100%;
-  height: 180px;
-  object-fit: cover;          /* only applies when the element is an <img> */
+  height: 220px;
   display: block;
   background: var(--color-secondary);
-  opacity: 0.25;
+  opacity: 0.45;
   flex-shrink: 0;
 }
 
-/* Real image should not be semi-transparent — reset opacity for <img> elements */
 img.recipe-detail__image {
+  object-fit: cover;
   opacity: 1;
 }
 
-/* ── Hero header (primary background) ───────────────────────────────────────── */
+/* ── Nav row — floats over the image ─────────────────────────────────────────── */
+
+.recipe-detail__nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+}
+
+/* Back button: pill with frosted-glass background */
+.recipe-detail__back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 6px 12px 6px 8px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.recipe-detail__back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Save/bookmark button: circle with frosted-glass background */
+.recipe-detail__save-btn {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: none;
+  border-radius: var(--radius-full);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.recipe-detail__save-btn svg { width: 20px; height: 20px; }
+.recipe-detail__save-btn:disabled { opacity: 0.5; }
+
+/* ── Info section (title + meta) — plain background below the image ──────────── */
 
 .recipe-detail__hero {
-  background: var(--color-primary);
-  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-  padding: var(--space-5) var(--space-6);
-  color: white;
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-3);
 }
 
 .recipe-detail__hero--skeleton {
-  min-height: 100px;
-  padding: var(--space-6);
+  min-height: 80px;
 }
 
 .recipe-detail__hero-title-row {
@@ -2862,7 +2897,7 @@ img.recipe-detail__image {
 .recipe-detail__title {
   font-size: var(--text-xl);
   font-weight: 500;
-  color: white;
+  color: var(--color-text);
   flex: 1;
   line-height: 1.35;
 }
@@ -2871,7 +2906,7 @@ img.recipe-detail__image {
   display: flex;
   gap: var(--space-5);
   font-size: var(--text-sm);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-secondary);
   flex-wrap: wrap;
 }
 
@@ -2883,13 +2918,13 @@ img.recipe-detail__image {
 
 .recipe-detail__meta svg { width: 13px; height: 13px; }
 
-/* ── Match bar — sits flush below the hero ───────────────────────────────────── */
+/* ── Match bar ───────────────────────────────────────────────────────────────── */
 
 .recipe-detail__match-bar {
   background: var(--color-surface);
-  border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
+  border-radius: var(--radius-2xl);
   padding: 8px var(--space-5);
-  border-bottom: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
   margin-bottom: var(--space-5);
 }
 

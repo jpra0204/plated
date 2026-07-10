@@ -127,10 +127,12 @@ export default function RecipeDetail() {
   if (isLoading) {
     return (
       <div className="page">
-        <div className="recipe-detail__nav">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ChevronLeftIcon aria-hidden="true" /> Back
-          </button>
+        <div className="recipe-detail__image-wrap recipe-detail__image-wrap--skeleton">
+          <div className="recipe-detail__nav">
+            <button className="recipe-detail__back-btn" onClick={() => navigate(-1)}>
+              <ChevronLeftIcon aria-hidden="true" /> Back
+            </button>
+          </div>
         </div>
         <div className="recipe-detail__hero recipe-detail__hero--skeleton">
           <div className="skeleton skeleton--text-lg" style={{ width: '70%', marginBottom: 8 }} />
@@ -146,10 +148,12 @@ export default function RecipeDetail() {
   if (isError || !data?.recipe) {
     return (
       <div className="page">
-        <div className="recipe-detail__nav">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ChevronLeftIcon aria-hidden="true" /> Back
-          </button>
+        <div className="recipe-detail__image-wrap recipe-detail__image-wrap--skeleton">
+          <div className="recipe-detail__nav">
+            <button className="recipe-detail__back-btn" onClick={() => navigate(-1)}>
+              <ChevronLeftIcon aria-hidden="true" /> Back
+            </button>
+          </div>
         </div>
         <div className="empty-state">
           <p>Recipe not found.</p>
@@ -172,31 +176,31 @@ export default function RecipeDetail() {
           onDismiss={() => setToast(t => ({ ...t, visible: false }))}
         />
 
-        {/* Nav row: back button + save icon */}
-        <div className="recipe-detail__nav">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ChevronLeftIcon aria-hidden="true" /> Back
-          </button>
-          <button
-            className="icon-btn recipe-detail__save-btn"
-            onClick={handleSaveToggle}
-            aria-label={isSaved ? 'Remove from saved' : 'Save recipe'}
-            disabled={saveMutation.isPending || unsaveMutation.isPending}
-          >
-            {isSaved
-              ? <BookmarkFilledIcon aria-hidden="true" />
-              : <BookmarkIcon aria-hidden="true" />}
-          </button>
+        {/* Full-bleed image hero — nav buttons float over it */}
+        <div className="recipe-detail__image-wrap">
+          <RecipeThumb
+            imageUrl={recipe.imageUrl}
+            alt={recipe.name}
+            className="recipe-detail__image"
+          />
+          <div className="recipe-detail__nav">
+            <button className="recipe-detail__back-btn" onClick={() => navigate(-1)}>
+              <ChevronLeftIcon aria-hidden="true" /> Back
+            </button>
+            <button
+              className="recipe-detail__save-btn"
+              onClick={handleSaveToggle}
+              aria-label={isSaved ? 'Remove from saved' : 'Save recipe'}
+              disabled={saveMutation.isPending || unsaveMutation.isPending}
+            >
+              {isSaved
+                ? <BookmarkFilledIcon aria-hidden="true" />
+                : <BookmarkIcon aria-hidden="true" />}
+            </button>
+          </div>
         </div>
 
-        {/* Recipe image — actual photo when available, grey placeholder otherwise */}
-        <RecipeThumb
-          imageUrl={recipe.imageUrl}
-          alt={recipe.name}
-          className="recipe-detail__image"
-        />
-
-        {/* Recipe hero header */}
+        {/* Recipe info — plain background below the image */}
         <div className="recipe-detail__hero">
           <div className="recipe-detail__hero-title-row">
             <h1 className="recipe-detail__title">{recipe.name}</h1>

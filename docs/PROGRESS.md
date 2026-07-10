@@ -38,7 +38,7 @@
 | I5 | CLAUDE CODE | Parallelize concept → recipe + image generation | done | Completed 2026-07-09 |
 | I6 | CLAUDE CODE | Wire into cache-first lookup | done | Completed 2026-07-09 |
 | I7 | CLAUDE CODE | Fallback / placeholder handling in frontend | done | Completed 2026-07-09 |
-| I8 | CLAUDE CODE | Observability (OTel child span for image gen) | pending | Depends on I5 |
+| I8 | CLAUDE CODE | Observability (OTel child span for image gen) | done | Completed 2026-07-09 |
 
 ---
 
@@ -75,3 +75,4 @@
 - **I7** — Frontend RecipeThumb: image_url displayed with grey placeholder fallback — 2026-07-09
 - **I5** — Two-call Gemini flow: concept → parallel recipe + image generation wired into chef route — 2026-07-09
 - **I6** — Cache-first verified: image gen only fires on miss/retry; fixed image_url missing from cache SELECT — 2026-07-09
+- **I8** — OTel child span chef.generate.image: success/duration attributes, recordException on failure — 2026-07-09

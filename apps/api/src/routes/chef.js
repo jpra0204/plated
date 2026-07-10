@@ -141,8 +141,19 @@ router.post('/generate', async (req, res, next) => {
     // ── Step 1: Generate concept (lightweight first call) ─────────────────────
     const concept = await generateConcept(pantryItemsWithExpiry, filters, preferences ?? {});
 
-    // ── Step 2: Parallel — full recipe text + image generation ────────────────
-    const [recipeResult, imageResult] = await Promise.allSettled([
+    // Pre-generate the recipe UUID here so the image upload (Step 2) can
+    // reference the same ID that will be persisted in the recipe DB row.
+    const recipeId = randomUUID();
+
+    // ── Step 2: Parallel — full recipe text + image generation + upload ───────
+    // Image generation and upload run in a child span (I8) so they are
+    // observable independently. Image failure is non-fatal (I5): the child
+    // span records the exception, but the parent chef.generate span is NOT
+    // marked as failed.
+    const imageSpan = tracer.startSpan('chef.generate.image');
+    const imageStart = Date.now();
+
+    const [recipeResult, imageUrlResult] = await Promise.allSettled([
       buildChefPrompt({
         pantryItems: pantryItemsWithExpiry,
         filters,
@@ -150,7 +161,32 @@ router.post('/generate', async (req, res, next) => {
         previousRecipeIds,
         concept,
       }),
-      generateRecipeImage(concept),
+      (async () => {
+        try {
+          const imageBase64 = await generateRecipeImage(concept);
+          if (!imageBase64) {
+            // generateRecipeImage returns null on failure — not an exception.
+            imageSpan.setAttribute('image_generation.success', false);
+            imageSpan.setAttribute('image_generation.duration_ms', Date.now() - imageStart);
+            imageSpan.end();
+            return null;
+          }
+          // uploadRecipeImage never throws — returns null on failure.
+          const url = await uploadRecipeImage(recipeId, imageBase64);
+          imageSpan.setAttribute('image_generation.success', url !== null);
+          imageSpan.setAttribute('image_generation.duration_ms', Date.now() - imageStart);
+          imageSpan.end();
+          return url;
+        } catch (err) {
+          // Unexpected error in the image path — record it on the child span
+          // but do NOT propagate to the parent span (image failure is non-fatal).
+          imageSpan.recordException(err);
+          imageSpan.setAttribute('image_generation.success', false);
+          imageSpan.setAttribute('image_generation.duration_ms', Date.now() - imageStart);
+          imageSpan.end();
+          return null;
+        }
+      })(),
     ]);
 
     // Recipe generation is mandatory — fail fast if it didn't produce a result.
@@ -161,12 +197,10 @@ router.post('/generate', async (req, res, next) => {
       return res.status(502).json({ error: { message: 'AI generation failed — invalid response.' } });
     }
 
-    // ── Step 3: Upload image (if succeeded) before DB insert ──────────────────
-    // Pre-generate the recipe UUID so the image path matches the recipe row.
-    const recipeId = randomUUID();
-    const imageBase64 = imageResult.status === 'fulfilled' ? imageResult.value : null;
-    // uploadRecipeImage never throws — returns null on failure.
-    const imageUrl = imageBase64 ? await uploadRecipeImage(recipeId, imageBase64) : null;
+    // ── Step 3: Resolve image URL from the parallel step ─────────────────────
+    // The image IIFE never rejects (all errors handled internally), so
+    // imageUrlResult is always 'fulfilled'; the value is a URL string or null.
+    const imageUrl = imageUrlResult.status === 'fulfilled' ? imageUrlResult.value : null;
 
     // ── Step 4: Persist everything in one transaction ─────────────────────────
     const { generation, recipe } = await db.transaction(async trx => {

@@ -126,6 +126,13 @@ beforeAll(async () => {
   await db('pantry_items').insert({
     user_id: user.id, name: 'Eggs', category: 'dairy', quantity: 6, unit: 'pcs',
   });
+
+  // Remove stale test-fixture recipes that might be left over from previous test
+  // runs in a persistent DB (e.g. a Docker volume that survives between sessions).
+  // All test-specific cuisines in this file use toLowerCase() before storage, so
+  // they are always stored as 'testcache...'. Deleting by prefix is safe because
+  // no production fixture uses this namespace.
+  await db('recipes').whereLike('cuisine', 'testcache%').del();
 });
 
 afterAll(async () => {
@@ -153,6 +160,10 @@ beforeEach(() => {
   mockGenerateConcept.mockResolvedValue(MOCK_CONCEPT);
   mockGenerateRecipeImage.mockResolvedValue(null);
   mockUploadRecipeImage.mockResolvedValue(null);
+  // Clear call history so assertions like not.toHaveBeenCalled() only see calls
+  // from the CURRENT test, not leftovers from a previous test.
+  mockGenerateRecipeImage.mockClear();
+  mockUploadRecipeImage.mockClear();
   // Reset OTel image-span mocks between tests (I8).
   mockStartSpan.mockClear();
   mockImageSpan.setAttribute.mockClear();

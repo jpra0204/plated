@@ -4,6 +4,16 @@ import { GoogleGenAI } from '@google/genai';
 const RETRIABLE_CODES = new Set([429, 503]);
 const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 
+// [ASSUMPTION]: gemini-2.0-flash-preview-image-generation is the correct model
+// name for Gemini's image-output generation via @google/genai (API key client).
+// Imagen models (imagen-4.0-generate-001) require Vertex AI context and are NOT
+// used here. If the model name changes or a GA model is released, update this
+// constant only.
+const IMAGE_GEN_MODEL = 'gemini-2.0-flash-preview-image-generation';
+
+/** Maximum ms to wait for image generation before treating it as failed. */
+const IMAGE_TIMEOUT_MS = 10_000;
+
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your-gemini-api-key') {
@@ -59,9 +69,12 @@ async function generateContent(ai, model, contents) {
  * @param {object} params.filters            - { mealType, cookTime, difficulty, cuisine, servings, notes }
  * @param {object} params.preferences        - { vegetarian, glutenFree, highProtein }
  * @param {string[]} params.previousRecipeIds - Recipe IDs already seen this session
+ * @param {{ name: string, cuisine: string, hero_ingredient: string }|null} [params.concept]
+ *   Optional concept from generateConcept(); when provided, constrains the recipe
+ *   to stay consistent with the chosen name/cuisine/hero_ingredient.
  * @returns {Promise<object>} Parsed recipe JSON from Gemini
  */
-export async function buildChefPrompt({ pantryItems, filters, preferences, previousRecipeIds = [] }) {
+export async function buildChefPrompt({ pantryItems, filters, preferences, previousRecipeIds = [], concept = null }) {
   const prompt = `
 You are a recipe generator. Generate ONE recipe using primarily the ingredients listed.
 
@@ -81,7 +94,12 @@ REQUIREMENTS:
 ${filters.cuisine ? `- Cuisine: ${filters.cuisine}` : ''}
 - Servings: ${filters.servings}
 ${filters.notes ? `- User notes: ${filters.notes}` : ''}
-
+${concept ? `
+RECIPE CONCEPT (keep the full recipe consistent with this):
+- Name: ${concept.name}
+- Cuisine: ${concept.cuisine}
+- Hero ingredient: ${concept.hero_ingredient}
+` : ''}
 DIETARY PREFERENCES (apply strictly):
 ${preferences.vegetarian ? '- Vegetarian: no meat or fish' : ''}
 ${preferences.glutenFree ? '- Gluten-free: no gluten-containing ingredients' : ''}
@@ -171,6 +189,50 @@ export async function generateConcept(pantryItems, filters, preferences) {
     cuisine: parsed.cuisine,
     hero_ingredient: parsed.hero_ingredient,
   };
+}
+
+/**
+ * Generate a realistic food photo for a recipe concept using Gemini's image
+ * output model. Never throws — returns null on any failure or timeout so that
+ * a failed image never blocks recipe generation.
+ *
+ * @param {{ name: string, cuisine: string, hero_ingredient: string }} concept
+ * @returns {Promise<string|null>} Base64-encoded image bytes (no data-URI prefix) or null.
+ */
+export async function generateRecipeImage(concept) {
+  try {
+    const { ai } = getModel();
+
+    const prompt = `A realistic, appetizing food photo of ${concept.name}, a ${concept.cuisine} dish featuring ${concept.hero_ingredient}. Professional food photography, natural lighting, close-up.`;
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Image generation timed out')), IMAGE_TIMEOUT_MS)
+    );
+
+    // [ASSUMPTION]: Image generation via generateContent + responseModalities is
+    // the correct API for non-Vertex @google/genai clients. The response carries
+    // image data in candidates[0].content.parts[].inlineData.data (base64).
+    const genPromise = ai.models.generateContent({
+      model: IMAGE_GEN_MODEL,
+      contents: prompt,
+      config: { responseModalities: ['IMAGE'] },
+    });
+
+    const response = await Promise.race([genPromise, timeoutPromise]);
+
+    const parts = response?.candidates?.[0]?.content?.parts ?? [];
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        return part.inlineData.data;
+      }
+    }
+
+    console.warn('[gemini] generateRecipeImage: response contained no image data');
+    return null;
+  } catch (err) {
+    console.error('[gemini] generateRecipeImage failed:', err?.message ?? err);
+    return null;
+  }
 }
 
 /**

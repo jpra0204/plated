@@ -5,11 +5,13 @@
  * POST /api/v1/chef/:generationId/approve → approve result → saved to saved_recipes
  */
 
+import { randomUUID } from 'crypto';
 import { Router } from 'express';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import verifyFirebaseToken from '../middleware/auth.js';
 import db from '../db/index.js';
-import { buildChefPrompt } from '../services/gemini.js';
+import { buildChefPrompt, generateConcept, generateRecipeImage } from '../services/gemini.js';
+import { uploadRecipeImage } from '../services/imageStorage.js';
 import { findCachedRecipe } from '../services/recipeCache.js';
 
 const tracer = trace.getTracer('plated-api');
@@ -136,23 +138,40 @@ router.post('/generate', async (req, res, next) => {
         : null,
     }));
 
-    // Call Gemini.
-    const generated = await buildChefPrompt({
-      pantryItems: pantryItemsWithExpiry,
-      filters,
-      preferences: preferences ?? {},
-      previousRecipeIds,
-    });
+    // ── Step 1: Generate concept (lightweight first call) ─────────────────────
+    const concept = await generateConcept(pantryItemsWithExpiry, filters, preferences ?? {});
 
+    // ── Step 2: Parallel — full recipe text + image generation ────────────────
+    const [recipeResult, imageResult] = await Promise.allSettled([
+      buildChefPrompt({
+        pantryItems: pantryItemsWithExpiry,
+        filters,
+        preferences: preferences ?? {},
+        previousRecipeIds,
+        concept,
+      }),
+      generateRecipeImage(concept),
+    ]);
+
+    // Recipe generation is mandatory — fail fast if it didn't produce a result.
+    const generated = recipeResult.status === 'fulfilled' ? recipeResult.value : null;
     if (!generated || !generated.name) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: 'AI generation failed' });
       span.end();
       return res.status(502).json({ error: { message: 'AI generation failed — invalid response.' } });
     }
 
-    // Persist everything in one transaction.
+    // ── Step 3: Upload image (if succeeded) before DB insert ──────────────────
+    // Pre-generate the recipe UUID so the image path matches the recipe row.
+    const recipeId = randomUUID();
+    const imageBase64 = imageResult.status === 'fulfilled' ? imageResult.value : null;
+    // uploadRecipeImage never throws — returns null on failure.
+    const imageUrl = imageBase64 ? await uploadRecipeImage(recipeId, imageBase64) : null;
+
+    // ── Step 4: Persist everything in one transaction ─────────────────────────
     const { generation, recipe } = await db.transaction(async trx => {
       const [newRecipe] = await trx('recipes').insert({
+        id:            recipeId,
         name:          generated.name,
         source:        'chef_ai',
         meal_type:     filters.mealType?.toLowerCase() ?? null,
@@ -161,6 +180,7 @@ router.post('/generate', async (req, res, next) => {
         cook_time_mins: generated.cook_time_mins ?? null,
         servings:      generated.servings ?? null,
         is_public:     false,   // private until approved
+        image_url:     imageUrl ?? null,
       }).returning('*');
 
       if (generated.ingredients?.length) {

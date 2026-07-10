@@ -16,8 +16,8 @@ vi.mock('../middleware/auth.js', () => ({
 }));
 
 // vi.mock is hoisted before variable declarations, so use vi.hoisted() to
-// create the mock fn in the same temporal zone as the factory.
-const { mockBuildChefPrompt, mockGenerated } = vi.hoisted(() => {
+// create the mock fns in the same temporal zone as the factory.
+const { mockBuildChefPrompt, mockGenerated, mockGenerateConcept, mockGenerateRecipeImage, MOCK_CONCEPT } = vi.hoisted(() => {
   const mockGenerated = {
     name: 'Test Omelette',
     cook_time_mins: 10,
@@ -33,12 +33,29 @@ const { mockBuildChefPrompt, mockGenerated } = vi.hoisted(() => {
       { step_number: 2, instruction: 'Cook in butter.' },
     ],
   };
-  return { mockBuildChefPrompt: vi.fn().mockResolvedValue(mockGenerated), mockGenerated };
+  const MOCK_CONCEPT = { name: 'Test Omelette', cuisine: 'French', hero_ingredient: 'Eggs' };
+  return {
+    mockBuildChefPrompt: vi.fn().mockResolvedValue(mockGenerated),
+    mockGenerated,
+    mockGenerateConcept: vi.fn().mockResolvedValue(MOCK_CONCEPT),
+    mockGenerateRecipeImage: vi.fn().mockResolvedValue(null),
+    MOCK_CONCEPT,
+  };
 });
 
 vi.mock('../services/gemini.js', () => ({
   buildChefPrompt: mockBuildChefPrompt,
   buildVoiceParsePrompt: vi.fn(),
+  generateConcept: mockGenerateConcept,
+  generateRecipeImage: mockGenerateRecipeImage,
+}));
+
+const { mockUploadRecipeImage } = vi.hoisted(() => ({
+  mockUploadRecipeImage: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock('../services/imageStorage.js', () => ({
+  uploadRecipeImage: mockUploadRecipeImage,
 }));
 
 import db from '../db/index.js';
@@ -100,6 +117,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   mockBuildChefPrompt.mockResolvedValue(mockGenerated);
+  mockGenerateConcept.mockResolvedValue(MOCK_CONCEPT);
+  mockGenerateRecipeImage.mockResolvedValue(null);
+  mockUploadRecipeImage.mockResolvedValue(null);
 });
 
 const AUTH = { Authorization: 'Bearer test-token' };
@@ -222,6 +242,97 @@ describe('POST /api/v1/chef/generate', () => {
       .set(AUTH)
       .send({ filters: VALID_FILTERS });
     expect(res.status).toBe(502);
+  });
+
+  // ── I5: Concept → Parallel (recipe + image) flow ─────────────────────────────
+
+  it('calls generateConcept before buildChefPrompt', async () => {
+    const callOrder = [];
+    mockGenerateConcept.mockImplementation(async () => {
+      callOrder.push('concept');
+      return MOCK_CONCEPT;
+    });
+    mockBuildChefPrompt.mockImplementation(async () => {
+      callOrder.push('recipe');
+      return mockGenerated;
+    });
+
+    await request(app).post('/api/v1/chef/generate').set(AUTH).send({ filters: VALID_FILTERS });
+
+    expect(callOrder[0]).toBe('concept');
+    expect(callOrder).toContain('recipe');
+  });
+
+  it('passes concept constraints to buildChefPrompt', async () => {
+    mockBuildChefPrompt.mockClear();
+
+    await request(app).post('/api/v1/chef/generate').set(AUTH).send({ filters: VALID_FILTERS });
+
+    expect(mockBuildChefPrompt).toHaveBeenCalledOnce();
+    const callArgs = mockBuildChefPrompt.mock.calls[0][0];
+    expect(callArgs.concept).toEqual(MOCK_CONCEPT);
+  });
+
+  it('attaches image_url to recipe when image generation and upload succeed', async () => {
+    const fakeBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAUA';
+    const fakeUrl = 'https://storage.googleapis.com/plated-recipe-images/recipes/test.webp';
+    mockGenerateRecipeImage.mockResolvedValueOnce(fakeBase64);
+    mockUploadRecipeImage.mockResolvedValueOnce(fakeUrl);
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(res.status).toBe(201);
+    // Verify the recipe row in the DB has the image_url set.
+    const recipe = await db('recipes').where({ id: res.body.recipe.id }).first();
+    expect(recipe.image_url).toBe(fakeUrl);
+    // uploadRecipeImage was called with the recipe's ID.
+    expect(mockUploadRecipeImage).toHaveBeenCalledWith(res.body.recipe.id, fakeBase64);
+  });
+
+  it('proceeds with image_url null when image generation returns null', async () => {
+    mockGenerateRecipeImage.mockResolvedValueOnce(null);
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(res.status).toBe(201);
+    const recipe = await db('recipes').where({ id: res.body.recipe.id }).first();
+    expect(recipe.image_url).toBeNull();
+    expect(mockUploadRecipeImage).not.toHaveBeenCalled();
+  });
+
+  it('proceeds with image_url null when image upload fails', async () => {
+    mockGenerateRecipeImage.mockResolvedValueOnce('some-base64');
+    mockUploadRecipeImage.mockResolvedValueOnce(null); // upload fails → null
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(res.status).toBe(201);
+    const recipe = await db('recipes').where({ id: res.body.recipe.id }).first();
+    expect(recipe.image_url).toBeNull();
+  });
+
+  it('proceeds with image_url null when image generation rejects (allSettled absorbs failure)', async () => {
+    mockGenerateRecipeImage.mockRejectedValueOnce(new Error('Image gen exploded'));
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    // Recipe must still succeed even if image gen throws.
+    expect(res.status).toBe(201);
+    expect(res.body.recipe.name).toBe('Test Omelette');
+    const recipe = await db('recipes').where({ id: res.body.recipe.id }).first();
+    expect(recipe.image_url).toBeNull();
   });
 
   // ── Cache-first behaviour ────────────────────────────────────────────────────

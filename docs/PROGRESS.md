@@ -35,7 +35,7 @@
 | I2 | CLAUDE CODE | Schema: add nullable `image_url TEXT` to recipes | done | Completed 2026-07-09 |
 | I3 | CLAUDE CODE | Image storage service (`imageStorage.js`) | done | Completed 2026-07-09 |
 | I4 | CLAUDE CODE | Two-call Gemini flow: concept extraction | done | Completed 2026-07-09 |
-| I5 | CLAUDE CODE | Parallelize concept → recipe + image generation | pending | Depends on I3, I4 |
+| I5 | CLAUDE CODE | Parallelize concept → recipe + image generation | done | Completed 2026-07-09 |
 | I6 | CLAUDE CODE | Wire into cache-first lookup | pending | Depends on I5 |
 | I7 | CLAUDE CODE | Fallback / placeholder handling in frontend | done | Completed 2026-07-09 |
 | I8 | CLAUDE CODE | Observability (OTel child span for image gen) | pending | Depends on I5 |
@@ -73,3 +73,4 @@
 - **I3** — Image storage service: WebP upload to GCS with immutable cache headers — 2026-07-09
 - **I4** — Gemini concept extraction: buildConceptPrompt + generateConcept added — 2026-07-09
 - **I7** — Frontend RecipeThumb: image_url displayed with grey placeholder fallback — 2026-07-09
+- **I5** — Two-call Gemini flow: concept → parallel recipe + image generation wired into chef route — 2026-07-09

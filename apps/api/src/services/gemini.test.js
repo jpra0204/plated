@@ -260,7 +260,7 @@ describe('generateRecipeImage', () => {
 
     expect(mockGenContent).toHaveBeenCalledOnce();
     const callArgs = mockGenContent.mock.calls[0][0];
-    expect(callArgs.model).toBe('gemini-2.0-flash-preview-image-generation');
+    expect(callArgs.model).toBe('gemini-2.5-flash-image');
     expect(callArgs.config?.responseModalities).toContain('IMAGE');
   });
 

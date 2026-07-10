@@ -100,7 +100,7 @@ export async function findCachedRecipe(
 
   const candidates = await query.select(
     'id', 'name', 'source', 'meal_type', 'cuisine', 'difficulty',
-    'cook_time_mins', 'servings', 'is_public', 'created_at',
+    'cook_time_mins', 'servings', 'is_public', 'image_url', 'created_at',
   );
 
   if (candidates.length === 0) return null;

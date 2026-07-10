@@ -58,6 +58,39 @@ vi.mock('../services/imageStorage.js', () => ({
   uploadRecipeImage: mockUploadRecipeImage,
 }));
 
+// ── OTel mock (I8) ────────────────────────────────────────────────────────────
+// Expose the image child span so individual tests can assert on its calls.
+const { mockImageSpan, mockStartSpan } = vi.hoisted(() => {
+  const mockImageSpan = {
+    setAttribute:    vi.fn(),
+    recordException: vi.fn(),
+    end:             vi.fn(),
+  };
+  const mockStartSpan = vi.fn(() => mockImageSpan);
+  return { mockImageSpan, mockStartSpan };
+});
+
+vi.mock('@opentelemetry/api', () => {
+  // Minimal parent-span stub — existing tests don't assert on parent span calls.
+  const noop = () => {};
+  const parentSpan = {
+    setAttributes:   noop,
+    setAttribute:    noop,
+    setStatus:       noop,
+    recordException: noop,
+    end:             noop,
+  };
+  return {
+    trace: {
+      getTracer: () => ({
+        startActiveSpan: (_name, fn) => fn(parentSpan),
+        startSpan:       mockStartSpan,
+      }),
+    },
+    SpanStatusCode: { OK: 1, ERROR: 2 },
+  };
+});
+
 import db from '../db/index.js';
 import chefRoutes from './chef.js';
 
@@ -120,6 +153,11 @@ beforeEach(() => {
   mockGenerateConcept.mockResolvedValue(MOCK_CONCEPT);
   mockGenerateRecipeImage.mockResolvedValue(null);
   mockUploadRecipeImage.mockResolvedValue(null);
+  // Reset OTel image-span mocks between tests (I8).
+  mockStartSpan.mockClear();
+  mockImageSpan.setAttribute.mockClear();
+  mockImageSpan.recordException.mockClear();
+  mockImageSpan.end.mockClear();
 });
 
 const AUTH = { Authorization: 'Bearer test-token' };
@@ -320,7 +358,7 @@ describe('POST /api/v1/chef/generate', () => {
     expect(recipe.image_url).toBeNull();
   });
 
-  it('proceeds with image_url null when image generation rejects (allSettled absorbs failure)', async () => {
+  it('proceeds with image_url null when image generation rejects (IIFE catch absorbs failure)', async () => {
     mockGenerateRecipeImage.mockRejectedValueOnce(new Error('Image gen exploded'));
 
     const res = await request(app)
@@ -333,6 +371,85 @@ describe('POST /api/v1/chef/generate', () => {
     expect(res.body.recipe.name).toBe('Test Omelette');
     const recipe = await db('recipes').where({ id: res.body.recipe.id }).first();
     expect(recipe.image_url).toBeNull();
+  });
+
+  // ── I8: OTel child span for image generation ─────────────────────────────────
+
+  it('starts a chef.generate.image child span on every generate request', async () => {
+    await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(mockStartSpan).toHaveBeenCalledWith('chef.generate.image');
+    expect(mockImageSpan.end).toHaveBeenCalled();
+  });
+
+  it('records image_generation.duration_ms as a non-negative number', async () => {
+    await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    const durationCall = mockImageSpan.setAttribute.mock.calls.find(
+      ([key]) => key === 'image_generation.duration_ms',
+    );
+    expect(durationCall).toBeDefined();
+    expect(typeof durationCall[1]).toBe('number');
+    expect(durationCall[1]).toBeGreaterThanOrEqual(0);
+  });
+
+  it('sets image_generation.success=true when image is generated and uploaded', async () => {
+    mockGenerateRecipeImage.mockResolvedValueOnce('some-base64');
+    mockUploadRecipeImage.mockResolvedValueOnce('https://storage.example.com/img.webp');
+
+    await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(mockImageSpan.setAttribute).toHaveBeenCalledWith('image_generation.success', true);
+    expect(mockImageSpan.end).toHaveBeenCalled();
+  });
+
+  it('sets image_generation.success=false when generateRecipeImage returns null', async () => {
+    // Default mock already returns null for generateRecipeImage.
+    await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(mockImageSpan.setAttribute).toHaveBeenCalledWith('image_generation.success', false);
+    expect(mockImageSpan.end).toHaveBeenCalled();
+  });
+
+  it('sets image_generation.success=false when uploadRecipeImage returns null', async () => {
+    mockGenerateRecipeImage.mockResolvedValueOnce('some-base64');
+    mockUploadRecipeImage.mockResolvedValueOnce(null);
+
+    await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    expect(mockImageSpan.setAttribute).toHaveBeenCalledWith('image_generation.success', false);
+    expect(mockImageSpan.end).toHaveBeenCalled();
+  });
+
+  it('calls recordException on image span and does not fail the overall request when generateRecipeImage throws', async () => {
+    const imgErr = new Error('Image generation exploded');
+    mockGenerateRecipeImage.mockRejectedValueOnce(imgErr);
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: VALID_FILTERS });
+
+    // Request must still succeed — image failure is non-fatal.
+    expect(res.status).toBe(201);
+    expect(mockImageSpan.recordException).toHaveBeenCalledWith(imgErr);
+    expect(mockImageSpan.setAttribute).toHaveBeenCalledWith('image_generation.success', false);
+    expect(mockImageSpan.end).toHaveBeenCalled();
   });
 
   // ── Cache-first behaviour ────────────────────────────────────────────────────
@@ -473,6 +590,150 @@ describe('POST /api/v1/chef/generate', () => {
 
     // Let afterAll handle the full cascade cleanup (generations → steps →
     // ingredients → recipes) using its batch delete which avoids FK issues.
+  });
+
+  // ── I6: Cache-first routing verification ─────────────────────────────────────
+
+  it('cache hit: generateConcept, generateRecipeImage, and uploadRecipeImage are NOT called', async () => {
+    // Use a unique cuisine so this fixture cannot collide with other tests.
+    const HIT_NO_CALLS_CUISINE = 'TestCacheHitNoCalls';
+
+    const [cacheRecipe] = await db('recipes').insert({
+      name:           'Cache Hit No-Calls Fixture',
+      source:         'chef_ai',
+      meal_type:      'lunch',
+      cuisine:        HIT_NO_CALLS_CUISINE.toLowerCase(),
+      difficulty:     'easy',
+      cook_time_mins: 20,
+      servings:       2,
+      is_public:      true,
+    }).returning('*');
+
+    await db('recipe_ingredients').insert([
+      { recipe_id: cacheRecipe.id, name: 'Eggs', quantity: 3, unit: 'pcs', sort_order: 1 },
+    ]);
+    await db('recipe_steps').insert([
+      { recipe_id: cacheRecipe.id, step_number: 1, instruction: 'Cache no-calls step.' },
+    ]);
+
+    mockGenerateConcept.mockClear();
+    mockGenerateRecipeImage.mockClear();
+    mockUploadRecipeImage.mockClear();
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: HIT_NO_CALLS_CUISINE, notes: '' } });
+
+    expect(res.status).toBe(201);
+    // None of the I5 generation functions must be called on a cache hit.
+    expect(mockGenerateConcept).not.toHaveBeenCalled();
+    expect(mockGenerateRecipeImage).not.toHaveBeenCalled();
+    expect(mockUploadRecipeImage).not.toHaveBeenCalled();
+    // afterAll handles cleanup via the cascade batch delete.
+  });
+
+  it('cache hit: returns the cached recipe image_url unchanged', async () => {
+    // [ASSUMPTION]: image_url is SELECTed by findCachedRecipe and spread into
+    // the response so the front-end always receives the existing image on a
+    // cache hit without any image-generation work.
+    const HIT_IMAGE_CUISINE = 'TestCacheHitImageUrl';
+    const CACHED_IMAGE_URL = 'https://storage.googleapis.com/plated-recipe-images/recipes/cached-fixture.webp';
+
+    const [cacheRecipe] = await db('recipes').insert({
+      name:           'Cache Hit Image URL Fixture',
+      source:         'chef_ai',
+      meal_type:      'lunch',
+      cuisine:        HIT_IMAGE_CUISINE.toLowerCase(),
+      difficulty:     'easy',
+      cook_time_mins: 20,
+      servings:       2,
+      is_public:      true,
+      image_url:      CACHED_IMAGE_URL,
+    }).returning('*');
+
+    await db('recipe_ingredients').insert([
+      { recipe_id: cacheRecipe.id, name: 'Eggs', quantity: 3, unit: 'pcs', sort_order: 1 },
+    ]);
+    await db('recipe_steps').insert([
+      { recipe_id: cacheRecipe.id, step_number: 1, instruction: 'Cache image step.' },
+    ]);
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: HIT_IMAGE_CUISINE, notes: '' } });
+
+    expect(res.status).toBe(201);
+    // The cached image_url must be returned as-is — no new image is generated.
+    expect(res.body.recipe.image_url).toBe(CACHED_IMAGE_URL);
+    // afterAll handles cleanup.
+  });
+
+  it('cache miss: generateConcept, buildChefPrompt, and generateRecipeImage are all called', async () => {
+    // Use a unique cuisine with no matching public recipe to guarantee a real
+    // cache miss (the cache is consulted but returns null).
+    const MISS_CUISINE = 'TestCacheMissExplicitNoPublicRecipe';
+
+    mockGenerateConcept.mockClear();
+    mockBuildChefPrompt.mockClear();
+    mockGenerateRecipeImage.mockClear();
+
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: MISS_CUISINE, notes: '' } });
+
+    expect(res.status).toBe(201);
+    // The full I5 two-call flow must fire on a cache miss.
+    expect(mockGenerateConcept).toHaveBeenCalledOnce();
+    expect(mockBuildChefPrompt).toHaveBeenCalledOnce();
+    expect(mockGenerateRecipeImage).toHaveBeenCalledOnce();
+  });
+
+  it('retry: generateConcept is called (cache is bypassed even when a matching public recipe exists)', async () => {
+    // Seed a cacheable recipe, first generate (which may hit cache), then verify
+    // that a Retry always calls generateConcept regardless of cache state.
+    const RETRY_CONCEPT_CUISINE = 'TestCacheRetryConceptCheck';
+
+    const [cacheRecipe] = await db('recipes').insert({
+      name:           'Retry Concept Check Fixture',
+      source:         'chef_ai',
+      meal_type:      'lunch',
+      cuisine:        RETRY_CONCEPT_CUISINE.toLowerCase(),
+      difficulty:     'easy',
+      cook_time_mins: 20,
+      servings:       2,
+      is_public:      true,
+    }).returning('*');
+
+    await db('recipe_ingredients').insert([
+      { recipe_id: cacheRecipe.id, name: 'Eggs', quantity: 3, unit: 'pcs', sort_order: 1 },
+    ]);
+    await db('recipe_steps').insert([
+      { recipe_id: cacheRecipe.id, step_number: 1, instruction: 'Retry concept step.' },
+    ]);
+
+    // First request (may return from cache — that is fine for this test).
+    const first = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: RETRY_CONCEPT_CUISINE, notes: '' } });
+    const firstGenId = first.body.generationId;
+
+    mockGenerateConcept.mockClear();
+    mockBuildChefPrompt.mockClear();
+
+    // Retry must bypass cache and invoke the full I5 flow.
+    const res = await request(app)
+      .post('/api/v1/chef/generate')
+      .set(AUTH)
+      .send({ filters: { ...VALID_FILTERS, cuisine: RETRY_CONCEPT_CUISINE, notes: '' }, retryOf: firstGenId });
+
+    expect(res.status).toBe(201);
+    expect(mockGenerateConcept).toHaveBeenCalledOnce();
+    expect(mockBuildChefPrompt).toHaveBeenCalledOnce();
+    // afterAll handles cleanup.
   });
 });
 

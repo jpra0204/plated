@@ -219,6 +219,7 @@ function normalizeRecipe(r) {
     mealType: r.meal_type,
     matchPct: r.match_pct ?? 0,
     isChefPick: r.is_chef_pick ?? false,
+    imageUrl: r.image_url ?? null,
     ingredients: (r.ingredients ?? []).map(ing => ({
       name: ing.name,
       quantity: ing.quantity,

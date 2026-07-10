@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import MatchBar from './MatchBar.jsx';
 import PantryTag from './PantryTag.jsx';
+import RecipeThumb from './RecipeThumb.jsx';
 
 /**
  * RecipeCard — collapsed list row that optionally expands into a full detail card.
@@ -63,7 +64,7 @@ function CollapsedRow({ recipe, onExpand, showMatchPill, isSaved }) {
       onKeyDown={e => e.key === 'Enter' && onExpand()}
       aria-label={`View ${recipe.name}`}
     >
-      <div className="recipe-card__thumb" aria-hidden="true" />
+      <RecipeThumb imageUrl={recipe.imageUrl ?? null} alt={recipe.name} className="recipe-card__thumb" />
       <div className="recipe-card__info">
         <div className="recipe-card__name">{recipe.name}</div>
         <div className="recipe-card__meta">

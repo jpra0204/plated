@@ -1057,6 +1057,13 @@ div.form-input {
   min-height: 76px;
 }
 
+/* Real image: reset opacity and use cover fit */
+img.recipe-card__thumb {
+  opacity: 1;
+  object-fit: cover;
+  height: 76px;
+}
+
 .recipe-card__body {
   flex: 1;
   min-width: 0;
@@ -2806,6 +2813,29 @@ div.form-input {
 
 .recipe-detail__save-btn:hover { background: var(--color-border); }
 .recipe-detail__save-btn svg { width: 22px; height: 22px; }
+
+/* ── Recipe image — full-width banner above the hero text ───────────────────── */
+
+/*
+ * [ASSUMPTION]: Placed between the nav row and the hero text block. When
+ * image_url is null the RecipeThumb component renders a <div> with this class,
+ * giving a grey placeholder rectangle of the same size — no layout shift.
+ * object-fit: cover keeps real photos at a fixed height regardless of aspect ratio.
+ */
+.recipe-detail__image {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;          /* only applies when the element is an <img> */
+  display: block;
+  background: var(--color-secondary);
+  opacity: 0.25;
+  flex-shrink: 0;
+}
+
+/* Real image should not be semi-transparent — reset opacity for <img> elements */
+img.recipe-detail__image {
+  opacity: 1;
+}
 
 /* ── Hero header (primary background) ───────────────────────────────────────── */
 

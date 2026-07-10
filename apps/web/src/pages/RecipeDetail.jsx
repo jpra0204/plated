@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MatchBar from '../components/MatchBar.jsx';
 import PantryTag from '../components/PantryTag.jsx';
+import RecipeThumb from '../components/RecipeThumb.jsx';
 import Toast from '../components/Toast.jsx';
 import { get, post, del } from '../lib/api.js';
 import { queryKeys } from '../lib/queryKeys.js';
@@ -188,6 +189,13 @@ export default function RecipeDetail() {
           </button>
         </div>
 
+        {/* Recipe image — actual photo when available, grey placeholder otherwise */}
+        <RecipeThumb
+          imageUrl={recipe.imageUrl}
+          alt={recipe.name}
+          className="recipe-detail__image"
+        />
+
         {/* Recipe hero header */}
         <div className="recipe-detail__hero">
           <div className="recipe-detail__hero-title-row">
@@ -270,6 +278,7 @@ function normalizeRecipe(r) {
     cuisine:    r.cuisine,
     mealType:   r.meal_type,
     matchPct:   r.match_pct ?? 0,
+    imageUrl:   r.image_url ?? null,
     ingredients: (r.ingredients ?? []).map(ing => ({
       name:     ing.name,
       quantity: ing.quantity,

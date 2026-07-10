@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MatchBar from '../components/MatchBar.jsx';
+import RecipeThumb from '../components/RecipeThumb.jsx';
 import Toast from '../components/Toast.jsx';
 import { get, del } from '../lib/api.js';
 import { queryKeys } from '../lib/queryKeys.js';
@@ -184,7 +185,7 @@ function SavedCard({ recipe, onNavigate, onDelete, deleting }) {
     return (
       <div className="recipe-card saved-card saved-card--confirming">
         <div className="recipe-card__main">
-          <div className="recipe-card__thumb" aria-hidden="true" />
+          <RecipeThumb imageUrl={recipe.imageUrl ?? null} alt={recipe.name} className="recipe-card__thumb" />
           <div className="recipe-card__body">
             <div className="recipe-card__name">{recipe.name}</div>
           </div>
@@ -231,7 +232,7 @@ function SavedCard({ recipe, onNavigate, onDelete, deleting }) {
       aria-label={`View ${recipe.name}`}
     >
       <div className="recipe-card__main">
-        <div className="recipe-card__thumb" aria-hidden="true" />
+        <RecipeThumb imageUrl={recipe.imageUrl ?? null} alt={recipe.name} className="recipe-card__thumb" />
         <div className="recipe-card__body">
           <div className="recipe-card__name">{recipe.name}</div>
           <div className="recipe-card__meta">
@@ -269,6 +270,7 @@ function normalizeRecipe(r) {
     mealType:   r.meal_type,
     matchPct:   r.match_pct ?? 0,
     isChefPick: r.is_chef_pick ?? false,
+    imageUrl:   r.image_url ?? null,
     ingredients: (r.ingredients ?? []).map(ing => ({
       name: ing.name, quantity: ing.quantity, unit: ing.unit,
       inPantry: ing.in_pantry ?? false,

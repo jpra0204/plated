@@ -46,6 +46,7 @@ router.get('/', async (req, res, next) => {
         'recipes.difficulty',
         'recipes.cook_time_mins',
         'recipes.servings',
+        'recipes.image_url',
       );
 
     if (saved.length === 0) return res.json({ recipes: [] });

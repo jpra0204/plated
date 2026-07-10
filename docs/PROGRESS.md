@@ -27,11 +27,26 @@
 
 ---
 
+## Phase I — Recipe Images
+
+| ID | Type | Step | Status | Notes |
+|---|---|---|---|---|
+| I1 | YOU | Create GCS bucket `plated-recipe-images` | done | Completed 2026-07-09 |
+| I2 | CLAUDE CODE | Schema: add nullable `image_url TEXT` to recipes | done | Completed 2026-07-09 |
+| I3 | CLAUDE CODE | Image storage service (`imageStorage.js`) | pending | Depends on I1 |
+| I4 | CLAUDE CODE | Two-call Gemini flow: concept extraction | pending | — |
+| I5 | CLAUDE CODE | Parallelize concept → recipe + image generation | pending | Depends on I3, I4 |
+| I6 | CLAUDE CODE | Wire into cache-first lookup | pending | Depends on I5 |
+| I7 | CLAUDE CODE | Fallback / placeholder handling in frontend | pending | Depends on I2 |
+| I8 | CLAUDE CODE | Observability (OTel child span for image gen) | pending | Depends on I5 |
+
+---
+
 ## Blocked / needs your input right now
 
 *(Updated automatically by `/plated-run` — do not edit manually)*
 
-- **A12** — Landing page needs a live session with you. Come prepared with: (1) a screenshot or two of the app to use as hero images, (2) the headline and subhead copy you want, (3) any section structure ideas. Once agreed, run `/plated-run` and Claude will scaffold the page.
+*(none)*
 
 ---
 
@@ -53,3 +68,5 @@
 - **A12** — Landing page at `/` (scaffold complete, design pass deferred) — 2026-07-07
 - **A7** — Pantry bulk delete (Select mode wired) — 2026-07-06
 - **A11** — Auth model rework (Home behind ProtectedRoute) — 2026-07-06
+- **I1** — GCS bucket `plated-recipe-images` created, public-read confirmed — 2026-07-09
+- **I2** — Schema: nullable `image_url TEXT` added to recipes table — 2026-07-09

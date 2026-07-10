@@ -75,7 +75,7 @@ router.get('/trending', async (_req, res, next) => {
       .where({ is_public: true })
       .orderByRaw('RANDOM()')
       .limit(5)
-      .select('id', 'name', 'source', 'meal_type', 'cuisine', 'difficulty', 'cook_time_mins', 'servings', 'created_at');
+      .select('id', 'name', 'source', 'meal_type', 'cuisine', 'difficulty', 'cook_time_mins', 'servings', 'image_url', 'created_at');
 
     await attachIngredientsAndSteps(recipes);
 
@@ -100,7 +100,7 @@ router.get('/suggestions', async (req, res, next) => {
     const [pantryItems, recipes, preferences] = await Promise.all([
       db('pantry_items').where({ user_id: user.id }).whereNull('deleted_at').select('name'),
       db('recipes').where({ is_public: true })
-        .select('id', 'name', 'source', 'meal_type', 'cuisine', 'difficulty', 'cook_time_mins', 'servings'),
+        .select('id', 'name', 'source', 'meal_type', 'cuisine', 'difficulty', 'cook_time_mins', 'servings', 'image_url'),
       db('dietary_preferences').where({ user_id: user.id }).first(),
     ]);
 

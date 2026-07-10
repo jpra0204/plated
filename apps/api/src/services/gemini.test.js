@@ -6,7 +6,7 @@ vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn(),
 }));
 
-import { buildConceptPrompt, generateConcept } from './gemini.js';
+import { buildConceptPrompt, generateConcept, generateRecipeImage } from './gemini.js';
 import { GoogleGenAI } from '@google/genai';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -223,5 +223,119 @@ describe('generateConcept', () => {
     await expect(
       generateConcept(SAMPLE_PANTRY, SAMPLE_FILTERS, SAMPLE_PREFS),
     ).rejects.toThrow('API quota exceeded');
+  });
+});
+
+// ── generateRecipeImage ───────────────────────────────────────────────────────
+
+const SAMPLE_CONCEPT = {
+  name: 'Greek Omelette',
+  cuisine: 'Greek',
+  hero_ingredient: 'Feta',
+};
+
+describe('generateRecipeImage', () => {
+  it('returns base64 image data when Gemini responds with an image part', async () => {
+    const fakeBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAUA';
+    mockGenContent.mockResolvedValue({
+      candidates: [{
+        content: {
+          parts: [
+            { inlineData: { data: fakeBase64, mimeType: 'image/jpeg' } },
+          ],
+        },
+      }],
+    });
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBe(fakeBase64);
+  });
+
+  it('calls generateContent with the image model and IMAGE responseModality', async () => {
+    mockGenContent.mockResolvedValue({
+      candidates: [{ content: { parts: [{ inlineData: { data: 'abc123', mimeType: 'image/jpeg' } }] } }],
+    });
+
+    await generateRecipeImage(SAMPLE_CONCEPT);
+
+    expect(mockGenContent).toHaveBeenCalledOnce();
+    const callArgs = mockGenContent.mock.calls[0][0];
+    expect(callArgs.model).toBe('gemini-2.0-flash-preview-image-generation');
+    expect(callArgs.config?.responseModalities).toContain('IMAGE');
+  });
+
+  it('includes concept name, cuisine, and hero_ingredient in the prompt', async () => {
+    mockGenContent.mockResolvedValue({
+      candidates: [{ content: { parts: [{ inlineData: { data: 'data', mimeType: 'image/jpeg' } }] } }],
+    });
+
+    await generateRecipeImage(SAMPLE_CONCEPT);
+
+    const callArgs = mockGenContent.mock.calls[0][0];
+    const prompt = typeof callArgs.contents === 'string' ? callArgs.contents : JSON.stringify(callArgs.contents);
+    expect(prompt).toContain('Greek Omelette');
+    expect(prompt).toContain('Greek');
+    expect(prompt).toContain('Feta');
+  });
+
+  it('returns null when Gemini response has no image parts', async () => {
+    mockGenContent.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: 'No image here' }] } }],
+    });
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when candidates array is empty', async () => {
+    mockGenContent.mockResolvedValue({ candidates: [] });
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when response is undefined', async () => {
+    mockGenContent.mockResolvedValue(undefined);
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBeNull();
+  });
+
+  it('returns null (does not throw) when Gemini rejects', async () => {
+    mockGenContent.mockRejectedValue(new Error('Network error'));
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when image generation times out', async () => {
+    // Simulate a Gemini call that never resolves (exceeds IMAGE_TIMEOUT_MS).
+    // We use a fast-forward approach: mock the call to reject after a delay
+    // that the real timeout would trigger first — but since we cannot control
+    // the 10 s timer in unit tests, we mock generateContent to reject with the
+    // same timeout error that our race would produce.
+    mockGenContent.mockRejectedValue(new Error('Image generation timed out'));
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBeNull();
+  });
+
+  it('returns the first image part when the response contains multiple parts', async () => {
+    const firstBase64 = 'first_image_data';
+    const secondBase64 = 'second_image_data';
+    mockGenContent.mockResolvedValue({
+      candidates: [{
+        content: {
+          parts: [
+            { text: 'Here is your image:' },
+            { inlineData: { data: firstBase64, mimeType: 'image/jpeg' } },
+            { inlineData: { data: secondBase64, mimeType: 'image/jpeg' } },
+          ],
+        },
+      }],
+    });
+
+    const result = await generateRecipeImage(SAMPLE_CONCEPT);
+    expect(result).toBe(firstBase64);
   });
 });
